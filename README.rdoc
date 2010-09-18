@@ -1,0 +1,44 @@
+= Enhanced Ruby Mode
+
+* Git: http://github.com/jacott/Enhanced-Ruby-Mode
+* Author: Geoff Jacobsen   
+* Copyright: 2010    
+* License: RUBY License
+
+== Description
+
+Enhanced Ruby Mode replaces the emacs ruby mode that comes with ruby.
+
+It uses the Ripper class found in ruby 1.9.2 to parse and indent the source code.  As a consquence only ruby 1.9.2
+syntax is parsed correctly.
+
+== TODO
+
+Optimisation. Parses and fontifies whole buffer each modification - still runs fast enough on large files.
+Replace need for flymake.
+Suggestions?
+
+
+== Synopsis
+
+   (add-to-list 'load-path "(path-to)/Enhanced-Ruby-Mode") ; must be added after any path containing old ruby-mode
+   (setq enh-ruby-program "(path-to-ruby1.9.2)/bin/ruby") ; so that still works if ruby points to ruby1.8
+   (require 'ruby-mode)
+
+== Requirements
+
+* ruby 1.9.2
+
+== Install
+
+* git clone git@github.com:jacott/Enhanced-Ruby-Mode.git
+
+== Development
+
+Developing requires test-unit-full gem
+
+Testing parser:
+
+ruby -I. test/test_erm_buffer.rb
+
+Sorry, no test suite for ruby-mode.el

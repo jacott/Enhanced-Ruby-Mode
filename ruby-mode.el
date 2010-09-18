@@ -1,3 +1,42 @@
+;;; ruby-mode.el --- Major mode for editing Ruby files
+
+;; Copyright (C) 2010
+;;   Geoff Jacobsen
+
+;; Author: Geoff Jacobsen
+;; URL: http://http://github.com/jacott/Enhanced-Ruby-Mode
+;; Created: Sep 18 2010
+;; Keywords: languages ruby
+;; Version: 0.1
+
+;; This file is not part of GNU Emacs.
+
+;; This file is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 2 of the License, or
+;; (at your option) any later version.
+
+;; It is distributed in the hope that it will be useful, but WITHOUT
+;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+;; or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+;; License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with it.  If not, see <http://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; Provides fontification, indentation, and navigation for Ruby code.
+;;
+;; If you're installing manually, you should add this to your .emacs
+;; file after putting it on your load path:
+;;
+;;    (add-to-list 'load-path "(path-to)/Enhanced-Ruby-Mode") ; must be added after any path containing old ruby-mode
+;;    (setq enh-ruby-program "(path-to-ruby1.9.2)/bin/ruby") ; so that still works if ruby points to ruby1.8
+;;    (autoload 'ruby-mode "ruby-mode" "Major mode for ruby files" t)
+;;    (add-to-list 'auto-mode-alist '("\\.rb$" . ruby-mode))
+;;    (add-to-list 'interpreter-mode-alist '("ruby" . ruby-mode))
+;;
 (defcustom enh-ruby-program "ruby"
   "The ruby program to parse the source."
   :group 'ruby)
