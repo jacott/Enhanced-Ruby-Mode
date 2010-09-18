@@ -156,7 +156,7 @@ class ErmBuffer
           end
           add(:arglist, tok, 1)
         else
-          add(:rem, tok, tok.size, false, :cont)
+          add(:op, tok, tok.size, false, :cont)
         end
       @statment_start=true
       r
@@ -189,7 +189,7 @@ class ErmBuffer
     end
 
     def on_semicolon(tok)
-      r=add(:rem,:semicolon,1,true)
+      r=add(:kw,:semicolon,1,true)
       @statment_start=true
       r
     end
@@ -458,6 +458,7 @@ class ErmBuffer
      block: 10,
      heredoc_beg: 11,
      heredoc_end: 11,
+     op: 12,             # ruby-op-face
      }
 
   def initialize

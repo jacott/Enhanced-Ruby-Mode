@@ -117,6 +117,11 @@ Also ignores spaces after parenthesis when 'space."
   "Face used to highlight regexp delimiters like / and %r."
   :group 'ruby)
 
+(defface ruby-op-face
+  '((t :foreground "dark violet" :bold t))
+  "Face used to highlight operators like + and ||"
+  :group 'ruby)
+
 
 (defun ruby-mode-set-encoding ()
   (save-excursion
@@ -464,6 +469,7 @@ modifications to the buffer."
         font-lock-function-name-face
         font-lock-keyword-face
         ruby-heredoc-delimiter-face
+        ruby-op-face
         ))
 
 (defun ruby-calculate-indent (&optional start-point)
