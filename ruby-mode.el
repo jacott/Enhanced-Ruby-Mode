@@ -51,6 +51,11 @@
   :type 'integer :group 'ruby)
 (put 'ruby-indent-level 'safe-local-variable 'integerp)
 
+(defcustom ruby-hanging-indent-level 1
+  "*Extra hanging Indentation for continued ruby statements."
+  :type 'integer :group 'ruby)
+(put 'ruby-hanging-indent-level 'safe-local-variable 'integerp)
+
 (defcustom ruby-comment-column 32
   "*Indentation column of comments."
   :type 'integer :group 'ruby)
@@ -480,6 +485,10 @@ modifications to the buffer."
               (current-column)
             (ruby-calculate-indent-1 (point) (line-beginning-position))))
 
+         ((eq 'r prop)
+          (ruby-backward-sexp)
+          (1+ (current-column)))
+
          ((or (eq 'font-lock-string-face face) 
               (eq 'ruby-heredoc-delimiter-face face) 
               (and (eq 'font-lock-variable-name-face face)
@@ -497,7 +506,7 @@ modifications to the buffer."
   (goto-char pos)
   (let ((start-pos pos)
         col max
-        (indent (- (current-indentation) (if (eq 'c (get-text-property pos 'indent)) 2 0)))
+        (indent (- (current-indentation) (if (eq 'c (get-text-property pos 'indent)) ruby-hanging-indent-level 0)))
         bc (nbc 0)
         pc (npc 0)
         (prop (get-text-property pos 'indent)))
@@ -521,19 +530,20 @@ modifications to the buffer."
     (setq pc (or (car pc) 0))
     (setq bc (or (car bc) 0))
     (setq max (max pc bc nbc npc))
-    (+ (if (eq 'c (get-text-property limit 'indent)) 2 0)
+    (+ (if (eq 'c (get-text-property limit 'indent)) ruby-hanging-indent-level 0)
      (cond
      ((= max 0) 
-      (if (not (or (eq (get-text-property start-pos 'face) 'ruby-heredoc-delimiter-face) (eq (get-text-property start-pos 'face) 'font-lock-string-face)))
+      (if (not (or (eq (get-text-property start-pos 'face) 'ruby-heredoc-delimiter-face)
+                   (eq (get-text-property start-pos 'face) 'font-lock-string-face)))
           indent
         (goto-char (or (ruby-string-start-pos start-pos) limit))
         (current-column)))
 
-     ((= max pc) pc)
+     ((= max pc) (if (eq 'c (get-text-property limit 'indent)) (- pc ruby-hanging-indent-level) pc))
 
      ((= max bc) 
       (if (eq 'd (get-text-property (+ start-pos bc -1) 'indent))
-          (+ (ruby-calculate-indent-1 (+ start-pos bc -1) start-pos) 2)
+          (+ (ruby-calculate-indent-1 (+ start-pos bc -1) start-pos) ruby-indent-level)
         (+ bc ruby-indent-level -1)))
 
      ((= max npc)
