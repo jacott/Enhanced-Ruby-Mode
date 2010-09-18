@@ -1,0 +1,504 @@
+require 'ripper'
+
+class ErmBuffer
+  module Adder
+    STATES=[]
+
+    def nadd(sym,tok,len=tok.size,ft=false,la=nil)
+      case sym
+      when :sp, :comment
+        case parser.mode
+        when :predef, :expdef
+        else
+          parser.mode=nil
+        end
+      else
+        @statment_start=false
+        parser.mode=:def if parser.mode==:predef
+        @block=false if @block==:b4args
+        case sym
+        when :ident, :const
+          @ident=true
+        else
+          @ident=false
+        end
+      end
+
+      @first_token=ft
+      @last_add=la
+      (parser.equal?(self) || lineno != parser.lineno() ?
+         self : prev).realadd(sym,tok,len)
+      sym
+    end
+  end
+
+  class Parser < ::Ripper   #:nodoc: internal use only
+    include Adder
+
+    attr_accessor *Adder::STATES
+    attr_accessor :heredoc, :mode
+
+    def parser
+      self
+    end
+
+    def add(*args)
+      (heredoc || self).nadd(*args)
+    end
+
+    def realadd(sym,tok,len)
+      if sym == :indent
+        @indent_stack << tok << @count+len if @count+len < @src_size
+        return
+      end
+
+
+      start=@count
+      unless len
+        len=2+@src.index("\n",start)-start
+      end
+      @count+=len
+      idx=FONT_LOCK_NAMES[sym]
+      if t=@res[idx]
+        if t.last == start
+          t[-1]=@count
+        else
+          t << start << @count
+        end
+      else
+        @res[idx]= [start, @count]
+      end
+    end
+
+    class Heredoc
+      include Adder
+
+      attr_accessor :tok, :lineno, :prev, :lines, :parser
+      attr_accessor *Adder::STATES
+
+      def initialize(parser,prev,tok,lineno)
+        @parser=parser
+        @lineno=lineno
+        @prev=prev
+        @lines=[]
+        Adder::STATES.each do |s|
+          send("#{s}=",prev.send(s))
+        end
+      end
+
+      def restore
+        Adder::STATES.each do |s|
+          prev.send("#{s}=",send(s))
+        end
+        @lines << [:heredoc_end,nil,nil] if lines.empty?
+        if parser.equal?(prev)
+          for args in lines
+            parser.nadd(*args)
+          end
+          parser.heredoc=nil
+        else
+          @prev.lines+=lines
+          parser.heredoc=@prev
+        end
+      end
+
+      def realadd(*args)
+        @lines << args
+      end
+    end
+
+    def initialize(src,first_count)
+      @src=src
+      super(src)
+      @src_size=src.size
+      @first_count = 0
+      # @first_count=first_count > 5 ? (src[0..first_count].rindex("\n")||0) : 0  # FIXME
+    end
+
+
+    def on_backref(tok)
+      add(:rem,tok)
+    end
+
+    for sym in [:backref, :embexpr_end, :float, :int,
+                :qwords_beg, :words_beg, :words_sep]
+      alias_method "on_#{sym}", :on_backref
+    end
+
+    [:CHAR, :__end__, :label, :ivar, :cvar, :gvar, :tstring_content, :label, :regexp_beg,
+     :backtick, :tstring_beg, :tlambda,
+     :embdoc_beg, :embdoc, :embdoc_end].each do |event|
+      module_eval(<<-End, __FILE__, __LINE__ + 1)
+        def on_#{event}(tok)
+          # fixme :nor, lineno(), column(), :#{event}, tok
+          add(:#{event},tok)
+        end
+      End
+    end
+
+    def self.make_hash(list)
+      list.inject({}){|h,k| h[k]=true; h}
+    end
+
+    INDENT_KW    = make_hash [:begin, :def, :for, :case, :module, :class, :do]
+    BACKDENT_KW  = make_hash [:elsif, :else, :when, :rescue, :ensure]
+    BEGINDENT_KW = make_hash [:if, :unless, :while]
+
+    def on_op(tok)
+      r=if @block && tok == '|'
+          case @block
+          when :b4args
+            indent(:l)
+            @block=:arglist
+          else
+            indent(:r)
+            @block=false
+          end
+          add(:arglist, tok, 1)
+        else
+          add(:rem, tok, tok.size, false, :cont)
+        end
+      @statment_start=true
+      r
+    end
+
+    def on_period(tok)
+      add(:rem, tok, tok.size, false, :cont)
+    end
+
+    def on_eol(sym,tok)
+      if @last_add
+        indent(:c,tok.size)
+      end
+      r=add(sym,tok,tok.size,true)
+      if heredoc && heredoc.lineno == lineno()
+        heredoc.restore
+      else
+      end
+      @statment_start=true
+      r
+    end
+
+    def on_nl(tok)
+      on_eol(:sp,tok)
+    end
+    alias on_ignored_nl on_nl
+
+    def on_comment(tok)
+      on_eol(:comment,tok)
+    end
+
+    def on_semicolon(tok)
+      r=add(:rem,:semicolon,1,true)
+      @statment_start=true
+      r
+    end
+
+    def on_comma(tok)
+      r=add(:rem,tok)
+      @statment_start=true
+      r
+    end
+
+    ESCAPE_LINE_END="\\\n"
+
+    def on_sp(tok)
+      if tok == ESCAPE_LINE_END
+        indent(:c,2)
+      end
+      add(:sp,tok,tok.size,@first_token,@last_add)
+    end
+
+    def on_heredoc_beg(tok)
+      r=add(:heredoc_beg,tok)
+      if !heredoc || heredoc.lineno < lineno
+        self.heredoc=Heredoc.new(self,heredoc||self,tok,lineno())
+      end
+      r
+    end
+
+    def on_heredoc_end(tok)
+      add(:heredoc_end,tok)
+    end
+
+    def on_tstring_end(tok)
+      if @mode == :sym
+        add(:label,tok)
+      else
+        add(:tstring_beg,tok)
+      end
+    end
+
+    def on_regexp_end(tok)
+      add(:regexp_end,tok)
+    end
+
+    def on_embvar(tok)
+      if (len=tok.size) > 1
+        add(:tstring_content,tok,len-1)
+        len=1
+      end
+      add(:ivar,tok,len)
+    end
+
+    def on_embexpr_beg(tok)
+      if (len=tok.size) > 2
+        add(:tstring_content,tok,len-2)
+        len=2
+      end
+      @brace_stack << :embexpr
+      indent(:l,1)
+      add(:ivar,tok,len)
+    end
+
+    def on_tlambeg(tok)
+      @brace_stack << :block
+      indent(:d)
+      add(:block,tok)
+    end
+
+    def on_lbrace(tok)
+      if @ident
+        @brace_stack << :block
+        indent(:d)
+        r=add(:block,tok)
+        @block=:b4args
+        r
+      else
+        @brace_stack << :brace
+        indent(:l)
+        add(:rem,tok)
+      end
+    end
+
+    def on_lparen(tok)
+      @ident_stack << [@ident, case @mode
+                               when :def
+                                 @mode=nil
+                               when :predef
+                                 @mode=:expdef
+                                 :predef
+                               else
+                                 @mode
+                               end]
+      indent(:l)
+      r=add(:rem,tok)
+      @statment_start=true
+      r
+    end
+
+    alias on_lbracket on_lparen
+
+    def on_rparen(tok)
+      indent(:r)
+      r=add(:rem,tok)
+      @ident,@mode=@ident_stack.pop
+      r
+    end
+
+    alias on_rbracket on_rparen
+
+    def on_rbrace(tok)
+      add(case @brace_stack.pop
+          when :embexpr
+            indent(:r)
+            :ivar
+          when :block
+            indent(:e)
+            :block
+          else
+            indent(:r)
+            :rem
+          end,tok)
+    end
+
+    def on_ident(tok)
+      r=case @mode
+        when :sym
+          add(:label,tok)
+        when :predef, :def
+          add(:defname,tok)
+        else
+          add(:ident, tok)
+        end
+      r
+    end
+
+    def on_symbeg(tok)
+      r=add(:label,tok)
+      @mode=:sym
+      r
+    end
+
+    def on_kw(sym)
+      sym=sym.to_sym
+      case @mode
+      when :sym
+        add(:label,sym)
+      when :def, :predef
+        if sym != :self
+          add(:defname,sym)
+        else
+          r=add(:kw,sym)
+          @mode=:def
+          r
+        end
+      else
+        if sym == :end
+          indent(:e)
+        elsif sym == :do
+          indent(:d)
+          r=add(:kw,sym)
+          @block=:b4args
+          return r
+        elsif BEGINDENT_KW.include? sym
+          indent(:b) if @statment_start
+        elsif INDENT_KW.include? sym
+          indent(:b)
+        elsif BACKDENT_KW.include? sym
+          indent(:s)
+        end
+        r=add(:kw,sym)
+        @mode= (sym==:def || sym==:alias) && :predef
+        r
+      end
+    end
+
+    def indent(type,c=0)
+      add(:indent,type,c)
+    end
+
+    def on_const(tok)
+      case @mode
+      when :sym
+        @mode=nil
+        add(:label,tok)
+      when :def, :predef
+        r=add(:const,tok)
+        @mode=:predef
+        r
+      else
+        add(:const, tok)
+      end
+    end
+
+
+    # Bugs in Ripper:
+    # empty here doc fails to fire on_heredoc_end
+    def parse
+      @count=1
+      @mode=nil
+      @brace_stack=[]
+      @heredoc=nil
+      @first_token=true
+      @last_add=nil
+      @res=[]
+      @ident=false
+      @ident_stack=[]
+      @block=false
+      @statment_start=true
+      @indent_stack=[]
+      super
+      realadd(:rem,'',@src_size-@count) if heredoc
+
+      # @count+=1
+      # while heredoc
+      #   heredoc.restore
+      # end
+      res=@res.map.with_index{|v,i| v ? "(#{i} #{v.join(' ')})" : nil}.flatten.join
+      "((#{@first_count+1} #{@src_size} #{@indent_stack.join(' ')})#{res})"
+    end
+
+    def compile_error(msg)
+      # fixme @buf.last,msg
+    end
+
+    private
+
+    # fixme PARSER_EVENTS
+
+    # #PARSER_EVENTS
+    # [:paren, :def,:var_ref,:class,]
+    #   .each do |event|
+    #   module_eval(<<-End, __FILE__, __LINE__ + 1)
+    #     def on_#{event}(*args)
+    #       args.unshift :#{event}
+    #       fixme args
+    #       @count
+    #     end
+    #   End
+    # end
+  end
+
+  FONT_LOCK_NAMES=
+    {
+     rem: 0,             # 'remove'
+     sp: 0,
+     ident: 0,
+     tstring_content: 1, # font-lock-string-face
+     const: 2,           # font-lock-type-face
+     ivar: 3,            # font-lock-variable-name-face
+     arglist: 3,
+     cvar: 3,
+     gvar: 3,
+     comment: 4,         # font-lock-comment-face
+     embdoc: 4,
+     label: 5,           # font-lock-constant-face
+     CHAR: 6,            # font-lock-string-face
+     backtick: 7,        # ruby-string-delimiter-face
+     __end__: 7,
+     embdoc_beg: 7,
+     embdoc_end: 7,
+     tstring_beg: 7,
+     regexp_beg: 8,      # ruby-regexp-delimiter-face
+     regexp_end: 8,
+     tlambda: 9,         # font-lock-function-name-face
+     defname: 9,
+     kw: 10,             # font-lock-keyword-face
+     block: 10,
+     heredoc_beg: 11,
+     heredoc_end: 11,
+     }
+
+  def initialize
+    @buffer=''
+  end
+
+  def invalid_syntax?(code, fname='')
+    code.force_encoding("utf8")
+    code = code.sub(/\A(?:\s*\#.*$)*(\n)?/n) {
+      "#$&#{"\n" if $1 && !$2}BEGIN{return false}\n"
+    }
+    eval(code, nil, fname, 0)
+  rescue SyntaxError
+    $!.message
+  rescue
+  end
+
+  attr_reader :buffer
+
+  def add_content(cmd, pbeg, len, content)
+    pbeg=pbeg.to_i
+    if !@first_count || pbeg < @first_count
+      @first_count=pbeg
+    end
+    # fixme :add_content, pbeg, @first_count
+    if cmd == :r || @buffer.empty?
+      @buffer=content
+    else
+      len=pbeg+len.to_i-2
+      if pbeg==1 && len < 0
+        @buffer[0..0]=content << @buffer[0]
+      else
+        @buffer[pbeg-1..len]=content
+      end
+    end
+    # invalid_syntax?(@buffer)  # FIXME
+  end
+
+  def parse
+    parser=ErmBuffer::Parser.new(@buffer,@first_count||0)
+    @first_count=nil
+    parser.parse
+  end
+end

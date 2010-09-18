@@ -1,0 +1,6 @@
+
+
+* Optimise parsing
+- use array instead of string: can use gets to parse more lines, can store meta info from last parse
+- parse minimal subsection: most chars don't alter much except "'%({[` <<END \n
+- calc lineno in emacs from last known lineno if pos is closer than point-min (steal line-number-at-pos code)
