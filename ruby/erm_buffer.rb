@@ -48,25 +48,33 @@ class ErmBuffer
 
     def realadd(sym,tok,len)
       if sym == :indent
-        @indent_stack << tok << @count+len if @count+len < @src_size
+        @indent_stack << tok << @count+len if @count+len <= @point_max && @count+len >= @point_min
         return
       end
 
 
-      start=@count
+      if (start=@count) > @point_max
+        throw :parse_complete
+      end
       unless len
         len=2+@src.index("\n",start)-start
       end
-      @count+=len
+      return if (pos=@count+=len) < @point_min
+      start=@point_min if start < @point_min
+      pos= @point_max if pos > @point_max
+
       idx=FONT_LOCK_NAMES[sym]
       if t=@res[idx]
         if t.last == start
-          t[-1]=@count
+          t[-1]=pos
         else
-          t << start << @count
+          t << start << pos
         end
       else
-        @res[idx]= [start, @count]
+        @res[idx]= [start, pos]
+      end
+      if pos == @point_max
+        throw :parse_complete
       end
     end
 
@@ -107,7 +115,9 @@ class ErmBuffer
       end
     end
 
-    def initialize(src,first_count)
+    def initialize(src,point_min,point_max,first_count)
+      @point_min=point_min
+      @point_max=point_max
       @src=src
       super(src)
       @src_size=src.size
@@ -398,15 +408,17 @@ class ErmBuffer
       @block=false
       @statment_start=true
       @indent_stack=[]
-      super
-      realadd(:rem,'',@src_size-@count) if heredoc
+      catch :parse_complete do
+        super
+        realadd(:rem,'',@src_size-@count) if heredoc
 
-      # @count+=1
-      # while heredoc
-      #   heredoc.restore
-      # end
+        # @count+=1
+        # while heredoc
+        #   heredoc.restore
+        # end
+      end
       res=@res.map.with_index{|v,i| v ? "(#{i} #{v.join(' ')})" : nil}.flatten.join
-      "((#{@first_count+1} #{@src_size} #{@indent_stack.join(' ')})#{res})"
+      "((#{@point_min} #{@point_max} #{@indent_stack.join(' ')})#{res})"
     end
 
     def compile_error(msg)
@@ -478,7 +490,9 @@ class ErmBuffer
 
   attr_reader :buffer
 
-  def add_content(cmd, pbeg, len, content)
+  def add_content(cmd, point_min, point_max, pbeg, len, content)
+    @point_min=point_min.to_i
+    @point_max=point_max.to_i
     pbeg=pbeg.to_i
     if !@first_count || pbeg < @first_count
       @first_count=pbeg
@@ -498,7 +512,7 @@ class ErmBuffer
   end
 
   def parse
-    parser=ErmBuffer::Parser.new(@buffer,@first_count||0)
+    parser=ErmBuffer::Parser.new(@buffer,@point_min,@point_max,@first_count||0)
     @first_count=nil
     parser.parse
   end

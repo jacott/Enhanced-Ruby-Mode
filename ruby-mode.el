@@ -158,63 +158,63 @@ Also ignores spaces after parenthesis when 'space."
               (t (insert "# -*- coding: " coding-system " -*-\n"))
               )))))
 
-(defun enh-ruby-get-process ()
-  (when (and enh-ruby-process (not (equal (process-status enh-ruby-process) 'run)))
-    (ruby-initialise)
+(defun erm-ruby-get-process ()
+  (when (and erm-ruby-process (not (equal (process-status erm-ruby-process) 'run)))
+    (erm-initialise)
     (throw 'interrupted t))
-  (unless enh-ruby-process
+  (unless erm-ruby-process
     (set-process-filter
-     (setq enh-ruby-process
-           (start-process "enh-ruby-process"
+     (setq erm-ruby-process
+           (start-process "erm-ruby-process"
                           nil
-                          enh-ruby-program (concat (file-name-directory (find-lisp-object-file-name 'ruby-parse (symbol-function 'ruby-parse))) "ruby/erm.rb")))
-     'ruby-filter)
-    (set-process-query-on-exit-flag enh-ruby-process nil))
+                          enh-ruby-program (concat (file-name-directory (find-lisp-object-file-name 'erm-parse (symbol-function 'erm-parse))) "ruby/erm.rb")))
+     'erm-filter)
+    (set-process-query-on-exit-flag erm-ruby-process nil))
   
-  enh-ruby-process)
+  erm-ruby-process)
 
-(defvar ruby-response nil "Private variable.")
-(defvar ruby-parsing-p nil "Private variable.")
-(defvar ruby-full-parse-p nil "Private variable.")
+(defvar erm-response nil "Private variable.")
+(defvar erm-parsing-p nil "Private variable.")
+(defvar erm-full-parse-p nil "Private variable.")
 
-(defvar enh-ruby-process nil
+(defvar erm-ruby-process nil
   "The current erm process where emacs is interacting with")
 
-(defvar ruby-buff-num nil "Private variable.")
-(defvar ruby-next-buff-num nil "Private variable.")
-(defvar ruby-parse-buff nil "Private variable.")
-(defvar ruby-reparse-list nil "Private variable.")
+(defvar erm-buff-num nil "Private variable.")
+(defvar erm-next-buff-num nil "Private variable.")
+(defvar erm-parse-buff nil "Private variable.")
+(defvar erm-reparse-list nil "Private variable.")
 
-(defun ruby-initialise ()
-  (setq ruby-reparse-list nil
-        ruby-full-parse-p nil
-        ruby-parsing-p nil
-        ruby-parse-buff nil
-        ruby-next-buff-num 0)
-  (when enh-ruby-process
-    (delete-process enh-ruby-process) 
-    (setq enh-ruby-process nil))
+(defun erm-initialise ()
+  (setq erm-reparse-list nil
+        erm-full-parse-p nil
+        erm-parsing-p nil
+        erm-parse-buff nil
+        erm-next-buff-num 0)
+  (when erm-ruby-process
+    (delete-process erm-ruby-process) 
+    (setq erm-ruby-process nil))
 
   (dolist (buf (buffer-list))
     (with-current-buffer buf
       (when (eq 'ruby-mode major-mode)
-        (ruby-reset-buffer)))))
+        (erm-reset-buffer)))))
 
 
 
-(ruby-initialise)
+(erm-initialise)
 
-(defun ruby-major-mode-changed ()
-  (process-send-string (enh-ruby-get-process) (concat "k" (number-to-string ruby-buff-num) ":\n\0\0\0\n")))
+(defun erm-major-mode-changed ()
+  (erm-buffer-killed))
 
-(defun ruby-buffer-killed ()
-  (process-send-string (enh-ruby-get-process) (concat "k" (number-to-string ruby-buff-num) ":\n\0\0\0\n")))
+(defun erm-buffer-killed ()
+  (process-send-string (erm-ruby-get-process) (concat "k" (number-to-string erm-buff-num) ":\n\0\0\0\n")))
 
-(defun ruby-reset-buffer ()
-  (setq ruby-buff-num ruby-next-buff-num)
-  (setq ruby-next-buff-num (1+ ruby-buff-num))
-  (add-hook 'after-change-functions #'ruby-req-parse nil t)
-  (ruby-full-parse))
+(defun erm-reset-buffer ()
+  (setq erm-buff-num erm-next-buff-num)
+  (setq erm-next-buff-num (1+ erm-buff-num))
+  (add-hook 'after-change-functions #'erm-req-parse nil t)
+  (erm-full-parse))
 
 (defvar ruby-mode-syntax-table nil
   "Syntax table in use in ruby-mode buffers.")
@@ -341,12 +341,12 @@ Also ignores spaces after parenthesis when 'space."
   (set (make-local-variable #'font-lock-syntactic-face-function)
        (lambda (state) nil))
 
-  (make-local-variable 'ruby-full-parse-p)
-  (make-local-variable 'ruby-buff-num)
-  (add-hook 'change-major-mode-hook 'ruby-major-mode-changed nil t)
-  (add-hook 'kill-buffer-hook 'ruby-buffer-killed nil t)
+  (make-local-variable 'erm-full-parse-p)
+  (make-local-variable 'erm-buff-num)
+  (add-hook 'change-major-mode-hook 'erm-major-mode-changed nil t)
+  (add-hook 'kill-buffer-hook 'erm-buffer-killed nil t)
 
-  (ruby-reset-buffer)
+  (erm-reset-buffer)
 
   (if (fboundp 'run-mode-hooks)
       (run-mode-hooks 'ruby-mode-hook)
@@ -380,7 +380,7 @@ Also ignores spaces after parenthesis when 'space."
 
 
 ;; Stolen shamelessly from James Clark's nxml-mode.
-(defmacro ruby-with-unmodifying-text-property-changes (&rest body)
+(defmacro erm-with-unmodifying-text-property-changes (&rest body)
   "Evaluate BODY without any text property changes modifying the buffer.
 Any text properties changes happen as usual but the changes are not treated as
 modifications to the buffer."
@@ -399,62 +399,62 @@ modifications to the buffer."
            (restore-buffer-modified-p nil))))))
 
 
-(defun ruby-full-parse ()
-  (if (and ruby-parsing-p (not (eq ruby-parse-buff (current-buffer))))
-      (ruby-reparse-diff-buf)
-    (setq ruby-full-parse-p t)
-    (ruby-req-parse nil nil nil)))
+(defun erm-full-parse ()
+  (if (and erm-parsing-p (not (eq erm-parse-buff (current-buffer))))
+      (erm-reparse-diff-buf)
+    (setq erm-full-parse-p t)
+    (erm-req-parse nil nil nil)))
 
-(defun ruby-reparse-diff-buf ()
-  (setq ruby-reparse-list (cons (current-buffer) ruby-reparse-list)))
+(defun erm-reparse-diff-buf ()
+  (setq erm-reparse-list (cons (current-buffer) erm-reparse-list)))
 
 
-(defun ruby-req-parse (min max len)
-  (let ((pc (if ruby-parsing-p
-                (if (eq ruby-parse-buff (current-buffer))
-                    (setq ruby-parsing-p 'a)
+(defun erm-req-parse (min max len)
+  (let ((pc (if erm-parsing-p
+                (if (eq erm-parse-buff (current-buffer))
+                    (setq erm-parsing-p 'a)
                   'dbuf)
-              (setq ruby-response "")
-              (setq ruby-parsing-p t)
-              (if (not ruby-full-parse-p)
+              (setq erm-response "")
+              (setq erm-parsing-p t)
+              (if (not erm-full-parse-p)
                   'p
                 (setq min (point-min)
                       max (point-max)
                       len 0
-                      ruby-full-parse-p nil)
+                      erm-full-parse-p nil)
                 'r)))
         interrupted-p)
     (setq interrupted-p
           (catch 'interrupted
             (if (eq pc 'dbuf)
-                (ruby-reparse-diff-buf)
-              (setq ruby-parse-buff (current-buffer))
-              (process-send-string (enh-ruby-get-process)
-                                   (format "%s%d:%d:%d:" pc ruby-buff-num min len))
-              (process-send-region enh-ruby-process min max)
-              (process-send-string enh-ruby-process "\n\0\0\0\n"))
+                (erm-reparse-diff-buf)
+              (setq erm-parse-buff (current-buffer))
+              (process-send-string (erm-ruby-get-process)
+                                   (format "%s%d:%d:%d:%d:%d:" pc erm-buff-num (point-min) (point-max) min len))
+              (process-send-region erm-ruby-process min max)
+              (process-send-string erm-ruby-process "\n\0\0\0\n"))
             nil))
     (when interrupted-p
-      (setq ruby-full-parse-p t))))
+      (setq erm-full-parse-p t))))
 
-(defun ruby-wait-for-parse ()
-  (while ruby-parsing-p
-    (accept-process-output (enh-ruby-get-process) 0.5)))
+(defun erm-wait-for-parse ()
+  (while erm-parsing-p
+    (accept-process-output (erm-ruby-get-process) 0.5)))
 
-(defun ruby-filter (proc response)
-  (setq ruby-response (concat ruby-response response))
-  (when (string= "\n\0\0\0\n" (substring ruby-response -5 nil))
-    (setq response (substring ruby-response 0 -5))
-    (setq ruby-response "")
-    (with-current-buffer ruby-parse-buff
-      (ruby-with-unmodifying-text-property-changes
-       (ruby-parse response)))))
+(defun erm-filter (proc response)
+  (setq erm-response (concat erm-response response))
+  (when (string= "\n\0\0\0\n" (substring erm-response -5 nil))
+    (setq response (substring erm-response 0 -5))
+    (setq erm-response "")
+    (with-current-buffer erm-parse-buff
+      (erm-with-unmodifying-text-property-changes
+       (erm-parse response)))))
 
-(defsubst ruby-ready ()
-  (if ruby-full-parse-p
-      (ruby-full-parse)
-    (setq ruby-parsing-p t)
-    (process-send-string (enh-ruby-get-process) (concat "g" (number-to-string ruby-buff-num) ":\n\0\0\0\n"))))
+(defsubst erm-ready ()
+  (if erm-full-parse-p
+      (erm-full-parse)
+    (setq erm-parsing-p t)
+    (process-send-string (erm-ruby-get-process) (concat "g" (number-to-string erm-buff-num) ":\n\0\0\0\n"))))
 
 (setq ruby-font-names
       '(nil
@@ -747,7 +747,7 @@ With ARG, do it that many times."
                     "end"
                   "\nend"))))
     (insert text)
-    (ruby-wait-for-parse)
+    (erm-wait-for-parse)
     (ruby-indent-line t)
     (end-of-line)))
 
@@ -779,7 +779,7 @@ With ARG, do it that many times."
 
 (defun ruby-indent-line (&optional flag)
   "Correct indentation of the current ruby line."
-  (ruby-wait-for-parse)
+  (erm-wait-for-parse)
   (ruby-indent-to (ruby-calculate-indent)))
 
 (defun ruby-indent-to (indent)
@@ -797,6 +797,9 @@ With ARG, do it that many times."
          (istart (car ipos))
          (iend (cadr ipos))
          (rpos (cdr (cadr list))))
+
+    (unless (and (= (point-min) istart) (= (point-max) iend))
+      (throw 'interrupted))
     
     (when (> iend 0)
       (remove-text-properties istart iend '(indent nil))
@@ -819,27 +822,27 @@ With ARG, do it that many times."
         (while pos
           (put-text-property (car pos) (cadr pos) 'face face)
           (setq pos (cddr pos)))))))
-    
-(defun ruby-parse (response)
+
+(defun erm-parse (response)
   (let (interrupted-p
-        (send-next-p (eq 'a ruby-parsing-p)))
-    (setq ruby-parsing-p nil)
+        (send-next-p (eq 'a erm-parsing-p)))
+    (setq erm-parsing-p nil)
     (setq interrupted-p
           (condition-case nil
               (catch 'interrupted
                 (if send-next-p
-                    (ruby-ready)
+                    (erm-ready)
                   (ruby-add-faces (car (read-from-string response))))
                 nil)
             (error t)))
     (if interrupted-p 
-        (setq ruby-full-parse-p t)
-      (if ruby-full-parse-p 
-          (ruby-full-parse)
-        (when (car ruby-reparse-list)
-          (with-current-buffer (car ruby-reparse-list)
-            (setq ruby-reparse-list (cdr ruby-reparse-list))
-            (ruby-full-parse)))))))
+        (setq erm-full-parse-p t)
+      (if erm-full-parse-p 
+          (erm-full-parse)
+        (when (car erm-reparse-list)
+          (with-current-buffer (car erm-reparse-list)
+            (setq erm-reparse-list (cdr erm-reparse-list))
+            (erm-full-parse)))))))
 
 
 (provide 'ruby-mode)

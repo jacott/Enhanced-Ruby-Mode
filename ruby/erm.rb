@@ -32,7 +32,7 @@ File.open("/tmp/erm.out",'a') do |out|
     while c=STDIN.gets("\n\0\0\0\n")
       # $fixme.puts
       cmd=c[0].to_sym
-      args=c[1..-6].split(':',4)
+      args=c[1..-6].split(':',6)
       buf=store.get_buffer(bn=args.shift.to_i)
       if cmd == :k
         store.rm(bn)
