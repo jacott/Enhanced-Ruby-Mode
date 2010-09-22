@@ -155,6 +155,7 @@ class ErmBuffer
     BEGINDENT_KW = make_hash [:if, :unless, :while]
 
     def on_op(tok)
+      @mode=nil
       r=if @block && tok == '|'
           case @block
           when :b4args
@@ -205,6 +206,7 @@ class ErmBuffer
     end
 
     def on_comma(tok)
+      @mode=nil
       r=add(:rem,tok)
       @statment_start=true
       r
@@ -418,7 +420,7 @@ class ErmBuffer
         # end
       end
       res=@res.map.with_index{|v,i| v ? "(#{i} #{v.join(' ')})" : nil}.flatten.join
-      "((#{@point_min} #{@point_max} #{@indent_stack.join(' ')})#{res})"
+      "((#{@src_size} #{@point_min} #{@point_max} #{@indent_stack.join(' ')})#{res})"
     end
 
     def compile_error(msg)

@@ -794,17 +794,18 @@ With ARG, do it that many times."
 
 (defun ruby-add-faces (list)
   (let* ((ipos (car list))
-         (istart (car ipos))
-         (iend (cadr ipos))
+         (buf-size (car ipos))
+         (istart (cadr ipos))
+         (iend (caddr ipos))
          (rpos (cdr (cadr list))))
 
-    (unless (and (= (point-min) istart) (= (point-max) iend))
+    (unless (and (= (buffer-size) buf-size) (= (point-min) istart) (= (point-max) iend))
       (throw 'interrupted))
     
     (when (> iend 0)
       (remove-text-properties istart iend '(indent nil))
 
-      (setq ipos (cddr ipos))
+      (setq ipos (cdddr ipos))
 
       (while ipos
         (put-text-property (cadr ipos) (1+ (cadr ipos)) 'indent (car ipos))
