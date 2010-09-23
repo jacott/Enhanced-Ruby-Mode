@@ -214,7 +214,7 @@ Also ignores spaces after parenthesis when 'space."
   (setq erm-buff-num erm-next-buff-num)
   (setq erm-next-buff-num (1+ erm-buff-num))
   (add-hook 'after-change-functions #'erm-req-parse nil t)
-  (erm-full-parse))
+  (ruby-fontify-buffer))
 
 (defvar ruby-mode-syntax-table nil
   "Syntax table in use in ruby-mode buffers.")
@@ -399,7 +399,9 @@ modifications to the buffer."
            (restore-buffer-modified-p nil))))))
 
 
-(defun erm-full-parse ()
+(defun ruby-fontify-buffer ()
+  "Fontify the current buffer. Useful if faces are out of sync"
+  (interactive)
   (if (and erm-parsing-p (not (eq erm-parse-buff (current-buffer))))
       (erm-reparse-diff-buf)
     (setq erm-full-parse-p t)
@@ -418,8 +420,8 @@ modifications to the buffer."
               (setq erm-parsing-p t)
               (if (not erm-full-parse-p)
                   'p
-                (setq min (point-min)
-                      max (point-max)
+                (setq min 1
+                      max (1+ (buffer-size))
                       len 0
                       erm-full-parse-p nil)
                 'r)))
@@ -452,7 +454,7 @@ modifications to the buffer."
 
 (defsubst erm-ready ()
   (if erm-full-parse-p
-      (erm-full-parse)
+      (ruby-fontify-buffer)
     (setq erm-parsing-p t)
     (process-send-string (erm-ruby-get-process) (concat "g" (number-to-string erm-buff-num) ":\n\0\0\0\n"))))
 
@@ -839,11 +841,11 @@ With ARG, do it that many times."
     (if interrupted-p 
         (setq erm-full-parse-p t)
       (if erm-full-parse-p 
-          (erm-full-parse)
+          (ruby-fontify-buffer)
         (when (car erm-reparse-list)
           (with-current-buffer (car erm-reparse-list)
             (setq erm-reparse-list (cdr erm-reparse-list))
-            (erm-full-parse)))))))
+            (ruby-fontify-buffer)))))))
 
 
 (provide 'ruby-mode)
