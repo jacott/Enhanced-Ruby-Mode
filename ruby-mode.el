@@ -626,6 +626,7 @@ With ARG, do it that many times."
 If optional SHUTUP-P is non-nil, no errors are signalled if no
 balanced expression is found."
   (interactive "*P")
+  (erm-wait-for-parse)
   (let ((end-pos (save-excursion (ruby-forward-sexp 1) (point))))
     (indent-region (point) end-pos)))
         
@@ -722,7 +723,7 @@ With ARG, do it that many times."
            (prop (get-text-property pos 'indent))
            (count 0))
       
-      (unless (or (eq prop 'l) (eq prop 'b))
+      (unless (or (eq prop 'l) (eq prop 'b) (eq prop 'd))
         (setq prop (and (setq pos (ruby-next-indent-change pos))
                         (get-text-property pos 'indent))))
 
@@ -801,30 +802,32 @@ With ARG, do it that many times."
          (iend (caddr ipos))
          (rpos (cdr (cadr list))))
 
-    (unless (and (= (buffer-size) buf-size) (= (point-min) istart) (= (point-max) iend))
+    (unless (and (= (buffer-size) buf-size))
       (throw 'interrupted))
     
-    (when (> iend 0)
-      (remove-text-properties istart iend '(indent nil))
+    (if (or (/= (point-min) istart) (/= (point-max) iend))
+        (setq erm-full-parse-p t)
+      (when (> iend 0)
+        (remove-text-properties istart iend '(indent nil))
 
-      (setq ipos (cdddr ipos))
+        (setq ipos (cdddr ipos))
 
-      (while ipos
-        (put-text-property (cadr ipos) (1+ (cadr ipos)) 'indent (car ipos))
-        (setq ipos (cddr ipos))
-        )
-      
-      (while rpos
-        (remove-text-properties (car rpos) (cadr rpos) '(face nil))
-        (setq rpos (cddr rpos))
-        ))
+        (while ipos
+          (put-text-property (cadr ipos) (1+ (cadr ipos)) 'indent (car ipos))
+          (setq ipos (cddr ipos))
+          )
+        
+        (while rpos
+          (remove-text-properties (car rpos) (cadr rpos) '(face nil))
+          (setq rpos (cddr rpos))
+          ))
     
-    (while (setq list (cdr list))
-      (let ((face (nth (caar list) ruby-font-names))
-            (pos (cdar list)))
-        (while pos
-          (put-text-property (car pos) (cadr pos) 'face face)
-          (setq pos (cddr pos)))))))
+      (while (setq list (cdr list))
+        (let ((face (nth (caar list) ruby-font-names))
+              (pos (cdar list)))
+          (while pos
+            (put-text-property (car pos) (cadr pos) 'face face)
+            (setq pos (cddr pos))))))))
 
 (defun erm-parse (response)
   (let (interrupted-p
@@ -838,7 +841,7 @@ With ARG, do it that many times."
                   (ruby-add-faces (car (read-from-string response))))
                 nil)
             (error t)))
-    (if interrupted-p 
+    (if interrupted-p
         (setq erm-full-parse-p t)
       (if erm-full-parse-p 
           (ruby-fontify-buffer)
