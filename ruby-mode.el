@@ -282,20 +282,7 @@ Also ignores spaces after parenthesis when 'space."
 
 (define-abbrev-table 'ruby-mode-abbrev-table ())
 
-
-(defun ruby-mode ()
-  "Major mode for editing Ruby code."
-  (interactive)
-  (kill-all-local-variables)
-  (use-local-map ruby-mode-map)
-  (setq major-mode 'ruby-mode
-        mode-name "EnhRuby"
-        comment-start "#"  ; used by comment-region; don't change it
-        comment-end "")
-
-  ;; We un-confuse `parse-partial-sexp' by setting syntax-table properties
-  ;; for characters inside regexp literals.
-
+(defun ruby-mode-variables ()
   (set-syntax-table ruby-mode-syntax-table)
   (setq local-abbrev-table ruby-mode-abbrev-table)
   (set (make-local-variable 'indent-line-function) 'ruby-indent-line)
@@ -309,7 +296,22 @@ Also ignores spaces after parenthesis when 'space."
   (set (make-local-variable 'parse-sexp-lookup-properties) t)
   (set (make-local-variable 'paragraph-start) (concat "$\\|" page-delimiter))
   (set (make-local-variable 'paragraph-separate) paragraph-start)
-  (set (make-local-variable 'paragraph-ignore-fill-prefix) t)
+  (set (make-local-variable 'paragraph-ignore-fill-prefix) t))  
+
+(defun ruby-mode ()
+  "Major mode for editing Ruby code."
+  (interactive)
+  (kill-all-local-variables)
+  (use-local-map ruby-mode-map)
+  (setq major-mode 'ruby-mode
+        mode-name "EnhRuby"
+        comment-start "#"  ; used by comment-region; don't change it
+        comment-end "")
+  (ruby-mode-variables)
+
+  ;; We un-confuse `parse-partial-sexp' by setting syntax-table properties
+  ;; for characters inside regexp literals.
+
 
   (set (make-local-variable 'add-log-current-defun-function) 'ruby-add-log-current-method)
 
