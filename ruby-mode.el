@@ -547,7 +547,7 @@ modifications to the buffer."
                    (eq (get-text-property start-pos 'face) 'font-lock-string-face)))
           indent
         (goto-char (or (ruby-string-start-pos start-pos) limit))
-        (current-column)))
+        (current-indentation)))
 
      ((= max pc) (if (eq 'c (get-text-property limit 'indent)) (- pc ruby-hanging-indent-level) pc))
 
