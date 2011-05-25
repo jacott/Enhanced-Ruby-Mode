@@ -4,3 +4,4 @@
 nokoload.gemspec
 pkg
 tmp
+*.elc

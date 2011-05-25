@@ -368,7 +368,7 @@ class ErmBuffer
         elsif INDENT_KW.include? sym
           indent(:b)
         elsif BACKDENT_KW.include? sym
-          indent(:s)
+          indent(:s) if @statment_start
         end
         r=add(:kw,sym)
         @mode= (sym==:def || sym==:alias) && :predef

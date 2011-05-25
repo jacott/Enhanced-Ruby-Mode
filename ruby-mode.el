@@ -255,7 +255,7 @@ Also ignores spaces after parenthesis when 'space."
 
 (defun ruby-electric-brace (arg)
   (interactive "P")
-  (insert-char last-command-char 1)
+  (insert-char last-command-event 1)
   (ruby-indent-line t)
   (delete-char -1)
   (self-insert-command (prefix-numeric-value arg)))
@@ -750,11 +750,13 @@ With ARG, do it that many times."
                 (forward-line 0)
                 (if (looking-at "^[ \t]*$")
                     "end"
-                  "\nend"))))
+                  (if (looking-at ".*{[^}]*$")
+                      "\n}"
+                    "\nend")))))
     (insert text)
     (erm-wait-for-parse)
     (ruby-indent-line t)
-    (end-of-line)))
+    ))
 
 
 (defun ruby-previous-indent-change (pos)
@@ -805,7 +807,7 @@ With ARG, do it that many times."
          (rpos (cdr (cadr list))))
 
     (unless (and (= (buffer-size) buf-size))
-      (throw 'interrupted))
+      (throw 'interrupted t))
     
     (if (or (/= (point-min) istart) (/= (point-max) iend))
         (setq erm-full-parse-p t)
