@@ -26,8 +26,9 @@ class ErmBuffer
 
       @first_token=ft
       @last_add=la
-      (parser.equal?(self) || lineno != parser.lineno() ?
-         self : prev).realadd(sym,tok,len)
+      (parser.equal?(self) ||
+       lineno != parser.lineno() ? self : prev)
+      .realadd(sym,tok,len)
       sym
     end
   end
@@ -207,7 +208,7 @@ class ErmBuffer
 
     def on_comma(tok)
       @mode=nil
-      r=add(:rem,tok)
+      r=add(:rem,tok, tok.size, false, :cont)
       @statment_start=true
       r
     end
@@ -445,8 +446,8 @@ class ErmBuffer
   end
 
   FONT_LOCK_NAMES=
-    {
-     rem: 0,             # 'remove'
+   {
+    rem: 0,             # 'remove'
      sp: 0,
      ident: 0,
      tstring_content: 1, # font-lock-string-face
@@ -473,7 +474,7 @@ class ErmBuffer
      heredoc_beg: 11,
      heredoc_end: 11,
      op: 12,             # ruby-op-face
-     }
+    }
 
   def initialize
     @buffer=''
