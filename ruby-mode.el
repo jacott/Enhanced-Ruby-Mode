@@ -274,6 +274,7 @@ Also ignores spaces after parenthesis when 'space."
   (define-key ruby-mode-map "\e\C-h" 'ruby-mark-defun)
   (define-key ruby-mode-map "\e\C-q" 'ruby-indent-exp)
   (define-key ruby-mode-map "\C-c\C-e" 'ruby-insert-end)
+  (define-key ruby-mode-map "\C-c\C-f" 'ruby-insert-end)
   (define-key ruby-mode-map "\C-m" 'newline)
   (define-key ruby-mode-map "\C-c/" 'ruby-insert-end))
 
@@ -299,7 +300,9 @@ Also ignores spaces after parenthesis when 'space."
   (set (make-local-variable 'paragraph-ignore-fill-prefix) t))  
 
 (defun ruby-mode ()
-  "Major mode for editing Ruby code."
+  "Major mode for editing Ruby code.
+
+\\{ruby-mode-map}"
   (interactive)
   (kill-all-local-variables)
   (use-local-map ruby-mode-map)
@@ -507,8 +510,19 @@ modifications to the buffer."
 
          (t 
           (forward-line -1)
-          (when (looking-at "^[[:space:]]*$")
-            (skip-chars-backward " \n\t\r\v\f"))
+          
+          (while 
+              (progn
+                (when (looking-at "^[[:space:]]*$")
+                  (skip-chars-backward " \n\t\r\v\f")
+                  (forward-line 0))
+
+                (setq face (get-text-property (point) 'face))
+                (or (eq 'font-lock-string-face face) 
+                    (eq 'ruby-heredoc-delimiter-face face) 
+                    (and (eq 'font-lock-variable-name-face face)
+                         (looking-at "#"))))
+            (forward-line -1))
           (ruby-calculate-indent-1 pos (line-beginning-position))))))))
 
 

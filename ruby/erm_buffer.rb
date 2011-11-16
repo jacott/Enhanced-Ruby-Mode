@@ -122,6 +122,7 @@ class ErmBuffer
       @src=src
       super(src)
       @src_size=src.size
+      @file_encoding=@src.encoding
       @first_count = 0
       # @first_count=first_count > 5 ? (src[0..first_count].rindex("\n")||0) : 0  # FIXME
     end
@@ -141,7 +142,8 @@ class ErmBuffer
      :embdoc_beg, :embdoc, :embdoc_end].each do |event|
       module_eval(<<-End, __FILE__, __LINE__ + 1)
         def on_#{event}(tok)
-          # fixme :nor, lineno(), column(), :#{event}, tok
+          tok.force_encoding(@file_encoding) unless tok.encoding.equal?(@file_encoding)
+          # fixme :nor, lineno(), column(), :#{event}, tok, tok.encoding
           add(:#{event},tok)
         end
       End
@@ -161,9 +163,11 @@ class ErmBuffer
           case @block
           when :b4args
             indent(:l)
+            @list_count+=1
             @block=:arglist
           else
             indent(:r)
+            @list_count-=1
             @block=false
           end
           add(:arglist, tok, 1)
@@ -185,7 +189,6 @@ class ErmBuffer
       r=add(sym,tok,tok.size,true)
       if heredoc && heredoc.lineno == lineno()
         heredoc.restore
-      else
       end
       @statment_start=true
       r
@@ -208,7 +211,7 @@ class ErmBuffer
 
     def on_comma(tok)
       @mode=nil
-      r=add(:rem,tok, tok.size, false, :cont)
+      r=add(:rem,tok, tok.size, false, @list_count <= 0)
       @statment_start=true
       r
     end
@@ -279,6 +282,7 @@ class ErmBuffer
         r
       else
         @brace_stack << :brace
+        @list_count+=1
         indent(:l)
         add(:rem,tok)
       end
@@ -295,6 +299,7 @@ class ErmBuffer
                                  @mode
                                end]
       indent(:l)
+      @list_count+=1
       r=add(:rem,tok)
       @statment_start=true
       r
@@ -305,6 +310,7 @@ class ErmBuffer
     def on_rparen(tok)
       indent(:r)
       r=add(:rem,tok)
+      @list_count-=1
       @ident,@mode=@ident_stack.pop
       r
     end
@@ -319,8 +325,9 @@ class ErmBuffer
           when :block
             indent(:e)
             :block
-          else
+          when :brace
             indent(:r)
+            @list_count-=1
             :rem
           end,tok)
     end
@@ -411,6 +418,7 @@ class ErmBuffer
       @block=false
       @statment_start=true
       @indent_stack=[]
+      @list_count=0
       catch :parse_complete do
         super
         realadd(:rem,'',@src_size-@count) if heredoc
