@@ -127,6 +127,13 @@ class ErmBuffer
       # @first_count=first_count > 5 ? (src[0..first_count].rindex("\n")||0) : 0  # FIXME
     end
 
+    # not used
+    def change_encoding(encoding)
+      @file_encoding=encoding
+      @src.force_encoding(encoding)
+      @src_size=src.size
+    end
+
 
     def on_backref(tok)
       add(:rem,tok)
@@ -486,10 +493,12 @@ class ErmBuffer
 
   def initialize
     @buffer=''
+    @buffer.force_encoding("UTF-8")
   end
 
+  # not used
   def invalid_syntax?(code, fname='')
-    code.force_encoding("utf8")
+    code.force_encoding("UTF-8")
     code = code.sub(/\A(?:\s*\#.*$)*(\n)?/n) {
       "#$&#{"\n" if $1 && !$2}BEGIN{return false}\n"
     }
@@ -507,6 +516,9 @@ class ErmBuffer
     pbeg=pbeg.to_i
     if !@first_count || pbeg < @first_count
       @first_count=pbeg
+    end
+    begin
+      content.force_encoding(@buffer.encoding)
     end
     # fixme :add_content, pbeg, @first_count
     if cmd == :r || @buffer.empty?

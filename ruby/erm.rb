@@ -18,13 +18,17 @@ end
 module Kernel
   def fixme(*args)
     $fixme.puts args.inspect
+    $fixme.flush
   end
 end
 
-File.open("/tmp/erm.out",'a') do |out|
-  $fixme=out
-  $fixme.puts "\n\nstarting\n\n"
-  $fixme.flush
+STDIN.set_encoding("binary")
+
+
+# File.open("/tmp/erm.out",'w') do |out|
+#   $fixme=out
+#   $fixme.puts "\n\nstarting\n\n"
+#   $fixme.flush
   require_relative 'erm_buffer'
 
   store=BufferStore.new
@@ -49,8 +53,9 @@ File.open("/tmp/erm.out",'a') do |out|
       # $fixme.flush
     end
   rescue
-    $fixme.puts $!.message
-    $fixme.puts $!.backtrace
+    # $fixme.puts $!.message
+    # $fixme.puts $!.backtrace
+    # $fixme.flush
     puts "#{$!.message}: #{$!.backtrace.join("\n")}".inspect << "\n\0\0\0\n"
   end
-end
+# end # FIXME
