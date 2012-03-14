@@ -21,6 +21,8 @@ module Kernel
   end
 end
 
+STDIN.set_encoding("binary")
+
 File.open("/tmp/erm.out",'a') do |out|
   $fixme=out
   $fixme.puts "\n\nstarting\n\n"
@@ -51,6 +53,7 @@ File.open("/tmp/erm.out",'a') do |out|
   rescue
     $fixme.puts $!.message
     $fixme.puts $!.backtrace
+    $fixme.flush
     puts "#{$!.message}: #{$!.backtrace.join("\n")}".inspect << "\n\0\0\0\n"
   end
 end
