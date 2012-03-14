@@ -21,6 +21,8 @@ module Kernel
   end
 end
 
+STDIN.set_encoding("binary")
+
 File.open("/tmp/erm.out",'a') do |out|
   $fixme=out
   $fixme.puts "\n\nstarting\n\n"
@@ -32,7 +34,7 @@ File.open("/tmp/erm.out",'a') do |out|
     while c=STDIN.gets("\n\0\0\0\n")
       # $fixme.puts
       cmd=c[0].to_sym
-      args=c[1..-6].force_encoding("binary").split(':',6)
+      args=c[1..-6].split(':',6)
       buf=store.get_buffer(bn=args.shift.to_i)
       if cmd == :k
         store.rm(bn)
@@ -51,6 +53,7 @@ File.open("/tmp/erm.out",'a') do |out|
   rescue
     $fixme.puts $!.message
     $fixme.puts $!.backtrace
+    $fixme.flush
     puts "#{$!.message}: #{$!.backtrace.join("\n")}".inspect << "\n\0\0\0\n"
   end
 end
