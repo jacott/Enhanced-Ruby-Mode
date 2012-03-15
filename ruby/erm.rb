@@ -21,7 +21,7 @@ module Kernel
   end
 end
 
-STDIN.set_encoding("binary")
+STDIN.set_encoding("UTF-8")
 
 File.open("/tmp/erm.out",'a') do |out|
   $fixme=out
@@ -51,6 +51,7 @@ File.open("/tmp/erm.out",'a') do |out|
       # $fixme.flush
     end
   rescue
+    $fixme.puts c.inspect
     $fixme.puts $!.message
     $fixme.puts $!.backtrace
     $fixme.flush
