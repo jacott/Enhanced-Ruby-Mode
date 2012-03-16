@@ -336,6 +336,8 @@ class ErmBuffer
             indent(:r)
             @list_count-=1
             :rem
+          else
+            :rem
           end,tok)
     end
 
