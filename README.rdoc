@@ -42,3 +42,8 @@ Testing parser:
 ruby -I. test/test_erm_buffer.rb
 
 Sorry, no test suite for ruby-mode.el
+
+== Credits
+
+Jell (Jean-Louis Giordano) https://github.com/Jell
+  Improved UTF-8 support

@@ -22,13 +22,13 @@ module Kernel
   end
 end
 
-STDIN.set_encoding("binary")
+STDIN.set_encoding("UTF-8")
 
+File.open("/tmp/erm.out",'w') do |out|
+  $fixme=out
+  $fixme.puts "\n\nstarting\n\n"
+  $fixme.flush
 
-# File.open("/tmp/erm.out",'w') do |out|
-#   $fixme=out
-#   $fixme.puts "\n\nstarting\n\n"
-#   $fixme.flush
   require_relative 'erm_buffer'
 
   store=BufferStore.new
@@ -53,9 +53,10 @@ STDIN.set_encoding("binary")
       # $fixme.flush
     end
   rescue
-    # $fixme.puts $!.message
-    # $fixme.puts $!.backtrace
-    # $fixme.flush
+    $fixme.puts c.inspect
+    $fixme.puts $!.message
+    $fixme.puts $!.backtrace
+    $fixme.flush
     puts "#{$!.message}: #{$!.backtrace.join("\n")}".inspect << "\n\0\0\0\n"
   end
-# end # FIXME
+end # FIXME
