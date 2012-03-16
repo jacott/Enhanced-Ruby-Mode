@@ -61,20 +61,20 @@
   :type 'integer :group 'ruby)
 (put 'ruby-comment-column 'safe-local-variable 'integerp)
 
-(defcustom ruby-deep-arglist t
-  "*Deep indent lists in parenthesis when non-nil.
-Also ignores spaces after parenthesis when 'space."
+
+(defcustom ruby-deep-arglist nil
+  "Ignored in enhanced ruby mode."
   :group 'ruby)
 (put 'ruby-deep-arglist 'safe-local-variable 'booleanp)
 
-(defcustom ruby-deep-indent-paren '(?\( ?\[ ?\] t)
-  "*Deep indent lists in parenthesis when non-nil. t means continuous line.
-Also ignores spaces after parenthesis when 'space."
+(defcustom ruby-deep-indent-paren t
+  "*Deep indent lists in parenthesis when non-nil."
   :group 'ruby)
 
-(defcustom ruby-deep-indent-paren-style 'space
-  "Default deep indent style."
+(defcustom ruby-deep-indent-paren-style nil
+  "Ignored in enhanced ruby mode."
   :options '(t nil space) :group 'ruby)
+
 
 (defcustom ruby-encoding-map '((shift_jis . cp932) (shift-jis . cp932))
   "Alist to map encoding name from emacs to ruby."
@@ -501,8 +501,10 @@ modifications to the buffer."
             (ruby-calculate-indent-1 (point) (line-beginning-position))))
 
          ((eq 'r prop)
-          (ruby-backward-sexp)
-          (1+ (current-column)))
+          (if ruby-deep-indent-paren
+              (progn (ruby-backward-sexp) (current-column))
+            (forward-line -1)
+            (- (ruby-calculate-indent-1 pos (line-beginning-position)) ruby-indent-level)))
 
          ((or (eq 'font-lock-string-face face) 
               (eq 'ruby-heredoc-delimiter-face face) 
@@ -515,7 +517,7 @@ modifications to the buffer."
           
           (while 
               (progn
-                (when (looking-at "^[[:space:]]*$")
+                (while (and (< (point-min) (line-beginning-position)) (looking-at "^[[:space:]]*\\(#.*\\)?$"))
                   (skip-chars-backward " \n\t\r\v\f")
                   (forward-line 0))
 
@@ -544,7 +546,7 @@ modifications to the buffer."
           (setq prop (get-text-property pos 'indent))))
       (setq col (- pos start-pos -1))
       (cond
-       ((eq prop 'l) (setq pc (cons col pc)))
+       ((eq prop 'l) (setq pc (cons (if ruby-deep-indent-paren col (+ ruby-indent-level indent)) pc)))
        ((eq prop 'r) (if pc (setq pc (cdr pc)) (setq npc col)))
        ((or (eq prop 'b) (eq prop 'd) (eq prop 's)) (setq bc (cons col bc)))
        ((eq prop 'e) (if bc (setq bc (cdr bc)) (setq nbc col))))
