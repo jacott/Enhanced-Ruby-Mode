@@ -739,8 +739,7 @@ With ARG, do it that many times."
         (setq prop (and (setq pos (ruby-previous-indent-change pos))
                         (get-text-property pos 'indent))))
       
-      (unless prop (error "expression ends prematurely"))
-      (goto-char pos))))
+      (goto-char (if prop pos (point-min))))))
 
 (defun ruby-forward-sexp (&optional arg)
   "Move backward across one balanced expression (sexp).
@@ -768,8 +767,7 @@ With ARG, do it that many times."
         (setq prop (and (setq pos (ruby-next-indent-change pos))
                         (get-text-property pos 'indent))))
       
-      (unless prop (error "expression ends prematurely"))
-      (goto-char pos))))
+      (goto-char (if prop pos (point-max))))))
 
 (defun ruby-insert-end ()
   (interactive)
