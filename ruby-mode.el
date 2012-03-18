@@ -178,6 +178,7 @@
 (defvar erm-response nil "Private variable.")
 (defvar erm-parsing-p nil "Private variable.")
 (defvar erm-full-parse-p nil "Private variable.")
+(defvar erm-no-parse-needed-p nil "Private variable.")
 
 (defvar erm-ruby-process nil
   "The current erm process where emacs is interacting with")
@@ -190,6 +191,7 @@
 (defun erm-initialise ()
   (setq erm-reparse-list nil
         erm-full-parse-p nil
+        erm-no-parse-needed-p nil
         erm-parsing-p nil
         erm-parse-buff nil
         erm-next-buff-num 0)
@@ -426,7 +428,14 @@ modifications to the buffer."
               (setq erm-response "")
               (setq erm-parsing-p t)
               (if (not erm-full-parse-p)
-                  'p
+                  (if (or erm-no-parse-needed-p
+                          (let* ((ichar (and (eq len 0) (eq (1+ min) max) (buffer-substring-no-properties min max)))
+                                 (face (and ichar (get-text-property min 'face))))
+                            (and ichar 
+                                 (or (and (eq face 'font-lock-string-face) (string-match "[^\\@#{]" ichar))
+                                     (eq face 'font-lock-comment-face)))))
+                      (progn (setq erm-parsing-p nil) 'a) 
+                    'p)
                 (setq min 1
                       max (1+ (buffer-size))
                       len 0
@@ -772,7 +781,6 @@ With ARG, do it that many times."
                       "\n}"
                     "\nend")))))
     (insert text)
-    (erm-wait-for-parse)
     (ruby-indent-line t)
     ))
 
@@ -805,7 +813,11 @@ With ARG, do it that many times."
 (defun ruby-indent-line (&optional flag)
   "Correct indentation of the current ruby line."
   (erm-wait-for-parse)
-  (ruby-indent-to (ruby-calculate-indent)))
+  (unwind-protect
+      (progn
+        (setq erm-no-parse-needed-p t)
+        (ruby-indent-to (ruby-calculate-indent)))
+    (setq erm-no-parse-needed-p nil)))
 
 (defun ruby-indent-to (indent)
   "Indent the current line."
@@ -864,7 +876,11 @@ With ARG, do it that many times."
                 nil)
             (error t)))
     (if interrupted-p
-        (setq erm-full-parse-p t)
+        (progn
+          (if (string-match "^)" response)
+              (error "%s" (substring response 1)))
+          (setq erm-full-parse-p t)
+          )
       (if erm-full-parse-p 
           (ruby-fontify-buffer)
         (when (car erm-reparse-list)

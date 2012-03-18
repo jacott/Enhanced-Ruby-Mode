@@ -7,7 +7,7 @@ class BufferStore
 
   def get_buffer(buf_num)
     @buffers[buf_num] ||
-      @buffers[buf_num]=ErmBuffer.new
+     @buffers[buf_num]=ErmBuffer.new
   end
 
   def rm(buf_num)
@@ -24,17 +24,16 @@ end
 
 STDIN.set_encoding("UTF-8")
 
-File.open("/tmp/erm.out",'w') do |out|
-  $fixme=out
-  $fixme.puts "\n\nstarting\n\n"
-  $fixme.flush
+# File.open("/tmp/erm.out",'w') do |out|
+#   $fixme=out
+#   $fixme.puts "\n\nstarting\n\n"
+#   $fixme.flush
 
   require_relative 'erm_buffer'
 
   store=BufferStore.new
   begin
     while c=STDIN.gets("\n\0\0\0\n")
-      # $fixme.puts
       cmd=c[0].to_sym
       args=c[1..-6].split(':',6)
       buf=store.get_buffer(bn=args.shift.to_i)
@@ -53,10 +52,10 @@ File.open("/tmp/erm.out",'w') do |out|
       # $fixme.flush
     end
   rescue
-    $fixme.puts c.inspect
-    $fixme.puts $!.message
-    $fixme.puts $!.backtrace
-    $fixme.flush
-    puts "#{$!.message}: #{$!.backtrace.join("\n")}".inspect << "\n\0\0\0\n"
+    # $fixme.puts c.inspect
+    # $fixme.puts $!.message
+    # $fixme.puts $!.backtrace
+    # $fixme.flush
+    puts ")#{$!.message}: #{$!.backtrace.join("\n")}\n\0\0\0\n"
   end
-end # FIXME
+# end # FIXME
