@@ -160,8 +160,11 @@
 
 (defun erm-ruby-get-process ()
   (when (and erm-ruby-process (not (equal (process-status erm-ruby-process) 'run)))
-    (erm-initialise)
-    (throw 'interrupted t))
+    (let ((message (and erm-parsing-p erm-response)))
+      (erm-initialise)
+      (if message 
+          (error "%s" message) 
+        (throw 'interrupted t))))
   (unless erm-ruby-process
     (setq erm-ruby-process
           (start-process "erm-ruby-process"
@@ -177,21 +180,26 @@
 
 (defvar erm-response nil "Private variable.")
 (defvar erm-parsing-p nil "Private variable.")
-(defvar erm-full-parse-p nil "Private variable.")
 (defvar erm-no-parse-needed-p nil "Private variable.")
 
 (defvar erm-ruby-process nil
   "The current erm process where emacs is interacting with")
 
-(defvar erm-buff-num nil "Private variable.")
 (defvar erm-next-buff-num nil "Private variable.")
 (defvar erm-parse-buff nil "Private variable.")
 (defvar erm-reparse-list nil "Private variable.")
+(defvar erm-syntax-check-list nil "Private variable.")
+
+(defun erm-reset-syntax-buffers (list)
+  (when (car list)
+    (with-current-buffer (car list) (setq need-syntax-check-p nil))
+    (erm-reset-syntax-buffers (cdr list))))
+
 
 (defun erm-initialise ()
+  (erm-reset-syntax-buffers erm-syntax-check-list) 
   (setq erm-reparse-list nil
-        erm-full-parse-p nil
-        erm-no-parse-needed-p nil
+        erm-syntax-check-list nil
         erm-parsing-p nil
         erm-parse-buff nil
         erm-next-buff-num 0)
@@ -297,6 +305,9 @@
   (set (make-variable-buffer-local 'comment-column) ruby-comment-column)
   (set (make-variable-buffer-local 'comment-start-skip) "#+ *")
   (setq indent-tabs-mode ruby-indent-tabs-mode)
+  (set (make-local-variable 'need-syntax-check-p) nil)
+  (set (make-local-variable 'erm-full-parse-p) nil)
+  (set (make-local-variable 'erm-buff-num) nil)
   (set (make-local-variable 'parse-sexp-ignore-comments) t)
   (set (make-local-variable 'parse-sexp-lookup-properties) t)
   (set (make-local-variable 'paragraph-start) (concat "$\\|" page-delimiter))
@@ -350,8 +361,6 @@
   (set (make-local-variable #'font-lock-syntactic-face-function)
        (lambda (state) nil))
 
-  (make-local-variable 'erm-full-parse-p)
-  (make-local-variable 'erm-buff-num)
   (add-hook 'change-major-mode-hook 'erm-major-mode-changed nil t)
   (add-hook 'kill-buffer-hook 'erm-buffer-killed nil t)
 
@@ -421,6 +430,9 @@ modifications to the buffer."
 
 
 (defun erm-req-parse (min max len)
+  (unless need-syntax-check-p
+    (setq need-syntax-check-p t)
+    (setq erm-syntax-check-list (cons (current-buffer) erm-syntax-check-list)))
   (let ((pc (if erm-parsing-p
                 (if (eq erm-parse-buff (current-buffer))
                     (setq erm-parsing-p 'a)
@@ -432,7 +444,7 @@ modifications to the buffer."
                           (let* ((ichar (and (eq len 0) (eq (1+ min) max) (buffer-substring-no-properties min max)))
                                  (face (and ichar (get-text-property min 'face))))
                             (and ichar 
-                                 (or (and (eq face 'font-lock-string-face) (string-match "[^\\@#{]" ichar))
+                                 (or (and (eq face 'font-lock-string-face) (string-match "[^\\@#{\"]" ichar))
                                      (eq face 'font-lock-comment-face)))))
                       (progn (setq erm-parsing-p nil) 'a) 
                     'p)
@@ -861,30 +873,101 @@ With ARG, do it that many times."
             (put-text-property (car pos) (cadr pos) 'face face)
             (setq pos (cddr pos))))))))
 
+(defun erm-syntax-response (response)
+  (save-excursion
+    (flymake-delete-own-overlays)
+    (goto-char (point-min))
+    (let ((last-line 1))
+      (while (string-match ":\\([0-9]+\\): *\\(\\(warning\\)?[^\n]+\\)\n" response)
+        (let (beg end ov
+                  (line-no (string-to-number (match-string 1 response)))
+                  (msg (match-string 0 response))
+                  (face (if (string= "warning" (match-string 3 response)) 'flymake-warnline 'flymake-errline)))
+          (setq response (substring response (match-end 0)))
+          (forward-line (- line-no last-line))
+
+          (if (and (not (eq ?: (string-to-char response)))
+                   (string-match "\\`[^\n]*\n\\([. ] *\\)^\n" response))
+              (progn
+                (setq beg (point))
+                (forward-char (length (match-string 1 response)))
+                (setq end (point))
+                
+                (backward-sexp)
+                (if (< (point) beg)
+                    (goto-char beg)
+                  (setq beg (point))))
+
+            (move-end-of-line nil)
+            (skip-chars-backward " \n\t\r\v\f")
+            (while (eq 'font-lock-comment-face (get-text-property (point) 'face))
+              (backward-char))
+            (skip-chars-backward " \n\t\r\v\f")
+            (setq end (point))
+            (back-to-indentation)
+            (setq beg (point)))
+          
+
+          (setq ov (make-overlay beg end nil t t))
+          (overlay-put ov 'face           face)
+          (overlay-put ov 'help-echo      msg)
+          (overlay-put ov 'flymake-overlay  t)
+          (overlay-put ov 'priority (if (eq 'flymake-warnline face) 99 100))
+
+          (setq last-line line-no)
+          ;; (message "line %s, type %s, message %s\n" (match-string 1 response) 
+          ;;          (match-string 3 response))
+          )))))
+
+(defun erm-do-syntax-check ()
+  (when (and (not erm-parsing-p) (car erm-syntax-check-list))
+    (with-current-buffer (car erm-syntax-check-list)
+      (setq erm-syntax-check-list (cdr erm-syntax-check-list))
+      (setq need-syntax-check-p nil)
+      (process-send-string (erm-ruby-get-process) (concat "c" (number-to-string erm-buff-num) 
+                                                          ":\n\0\0\0\n")))))
+
+
 (defun erm-parse (response)
   (let (interrupted-p
+        (cmd (aref response 0))
         (send-next-p (eq 'a erm-parsing-p)))
-    (setq erm-parsing-p nil)
-    (setq interrupted-p
-          (condition-case nil
-              (catch 'interrupted
-                (if send-next-p
-                    (erm-ready)
-                  (ruby-add-faces (car (read-from-string response))))
-                nil)
-            (error t)))
-    (if interrupted-p
-        (progn
-          (if (string-match "^)" response)
-              (error "%s" (substring response 1)))
-          (setq erm-full-parse-p t)
-          )
-      (if erm-full-parse-p 
-          (ruby-fontify-buffer)
-        (when (car erm-reparse-list)
-          (with-current-buffer (car erm-reparse-list)
-            (setq erm-reparse-list (cdr erm-reparse-list))
-            (ruby-fontify-buffer)))))))
+    (cond
+     ((eq ?\( cmd)
+          (setq erm-parsing-p nil)
+          (setq interrupted-p
+                (condition-case nil
+                    (catch 'interrupted
+                      (if send-next-p
+                          (erm-ready)
+                        (ruby-add-faces (car (read-from-string response))))
+                      nil)
+                  (error t)))
+          (if interrupted-p
+              (progn
+                (if (string-match "^)\\()\\)?" response)
+                    (if (match-string 1 response)
+                        (error "syntax check:\n%s" (substring response 2))
+                      (error "%s" (substring response 1))
+                      (setq erm-full-parse-p t))
+                  (setq erm-full-parse-p t)))
+
+            (if erm-full-parse-p 
+                (ruby-fontify-buffer)
+              (if (car erm-reparse-list)
+                  (with-current-buffer (car erm-reparse-list)
+                    (setq erm-reparse-list (cdr erm-reparse-list))
+                    (ruby-fontify-buffer))
+                (erm-do-syntax-check)
+                ))))
+
+     ((eq ?c cmd)
+      (erm-syntax-response (substring response 1))
+      (erm-do-syntax-check))
+
+     (t 
+      (setq erm-full-parse-p t)
+      (error "%s" (substring response 1))))))
 
 
 (provide 'ruby-mode)

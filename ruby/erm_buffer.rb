@@ -2,8 +2,6 @@ require 'ripper'
 
 class ErmBuffer
   module Adder
-    STATES=[]
-
     def nadd(sym,tok,len=tok.size,ft=false,la=nil)
       case sym
       when :sp, :comment
@@ -36,7 +34,6 @@ class ErmBuffer
   class Parser < ::Ripper   #:nodoc: internal use only
     include Adder
 
-    attr_accessor *Adder::STATES
     attr_accessor :heredoc, :mode
 
     def parser
@@ -83,22 +80,15 @@ class ErmBuffer
       include Adder
 
       attr_accessor :tok, :lineno, :prev, :lines, :parser
-      attr_accessor *Adder::STATES
 
       def initialize(parser,prev,tok,lineno)
         @parser=parser
         @lineno=lineno
         @prev=prev
         @lines=[]
-        Adder::STATES.each do |s|
-          send("#{s}=",prev.send(s))
-        end
       end
 
       def restore
-        Adder::STATES.each do |s|
-          prev.send("#{s}=",send(s))
-        end
         @lines << [:heredoc_end,nil,nil] if lines.empty?
         if parser.equal?(prev)
           for args in lines
@@ -126,14 +116,6 @@ class ErmBuffer
       @first_count = 0
       # @first_count=first_count > 5 ? (src[0..first_count].rindex("\n")||0) : 0  # FIXME
     end
-
-    # not used
-    def change_encoding(encoding)
-      @file_encoding=encoding
-      @src.force_encoding(encoding)
-      @src_size=src.size
-    end
-
 
     def on_backref(tok)
       add(:rem,tok)
@@ -495,19 +477,20 @@ class ErmBuffer
 
   def initialize
     @buffer=''
-    @buffer.force_encoding("UTF-8")
   end
 
   # not used
-  def invalid_syntax?(code, fname='')
-    code.force_encoding("UTF-8")
+  def check_syntax(fname='',code=@buffer)
     code = code.sub(/\A(?:\s*\#.*$)*(\n)?/n) {
-      "#$&#{"\n" if $1 && !$2}BEGIN{return false}\n"
+      "#$&#{"\n" if $1 && !$2}BEGIN{return ''}\n"
     }
+    $VERBOSE=true
     eval(code, nil, fname, 0)
   rescue SyntaxError
     $!.message
   rescue
+  ensure
+    $VERBOSE=nil
   end
 
   attr_reader :buffer
@@ -518,9 +501,6 @@ class ErmBuffer
     pbeg=pbeg.to_i
     if !@first_count || pbeg < @first_count
       @first_count=pbeg
-    end
-    begin
-      content.force_encoding(@buffer.encoding)
     end
     # fixme :add_content, pbeg, @first_count
     if cmd == :r || @buffer.empty?
@@ -533,7 +513,6 @@ class ErmBuffer
         @buffer[pbeg-1..len]=content
       end
     end
-    # invalid_syntax?(@buffer)  # FIXME
   end
 
   def parse

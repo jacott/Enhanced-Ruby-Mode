@@ -34,10 +34,15 @@ STDIN.set_encoding("UTF-8")
   store=BufferStore.new
   begin
     while c=STDIN.gets("\n\0\0\0\n")
+      # fixme c
       cmd=c[0].to_sym
       args=c[1..-6].split(':',6)
       buf=store.get_buffer(bn=args.shift.to_i)
-      if cmd == :k
+      case cmd
+      when :c
+        puts 'c'
+        puts "#{buf.check_syntax}\n\n\0\0\0\n"
+      when :k
         store.rm(bn)
         # $fixme.puts "Killed"
       else
@@ -56,6 +61,6 @@ STDIN.set_encoding("UTF-8")
     # $fixme.puts $!.message
     # $fixme.puts $!.backtrace
     # $fixme.flush
-    puts ")#{$!.message}: #{$!.backtrace.join("\n")}\n\0\0\0\n"
+    puts "e#{$!.message}: #{$!.backtrace.join("\n")}\n\0\0\0\n"
   end
 # end # FIXME
