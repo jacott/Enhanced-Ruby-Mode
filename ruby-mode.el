@@ -41,9 +41,12 @@
   "The ruby program to parse the source."
   :group 'ruby)
 
-(defcustom ruby-check-syntax t
+(defcustom ruby-check-syntax 'errors-and-warnings
   "Highlight syntax errors and warnings."
-  :type 'boolean :group 'ruby)
+  :type '(radio (const :tag "None" nil)
+                (const :tag "Errors" errors)
+                (symbol :tag "Errors and warnings" errors-and-warnings))
+  :group 'ruby)
 
 (defcustom ruby-indent-tabs-mode nil
   "*Indentation can insert tabs in ruby mode if this is non-nil."
@@ -624,14 +627,14 @@ modifications to the buffer."
   (when (< 0 (or (setq pos (previous-single-property-change pos 'face)) 0))
     (previous-single-property-change pos 'face)))
 
-(defun ruby-show-errors-at (pos)
+(defun ruby-show-errors-at (pos face)
   (let ((overlays (overlays-at pos))
         overlay
         messages)
 
     (while overlays
       (setq overlay (car overlays))
-      (when (overlay-get overlay 'erm-syn-overlay)
+      (when (and (overlay-get overlay 'erm-syn-overlay) (eq (overlay-get overlay 'face) face))
         (setq messages (cons (overlay-get overlay 'help-echo) messages)))
       (setq overlays (cdr overlays)))
 
@@ -639,23 +642,27 @@ modifications to the buffer."
     messages))
 
 
-(defun ruby-find-error ()
+(defun ruby-find-error (&optional arg)
   "Search back, then forward for a syntax error/warning.
 Display contents in mini-buffer."
-  (interactive)
+  (interactive "^P")
   (let (overlays
         overlay
+        (face (if arg 'erm-syn-warnline 'erm-syn-errline))
         messages
         (pos (point)))
-    (while (and (not messages) (> pos (point-min)))
-      (setq messages (ruby-show-errors-at (setq pos (previous-overlay-change pos)))))
+    (unless (eq last-command 'ruby-find-error)
+      (while (and (not messages) (> pos (point-min)))
+        (setq messages (ruby-show-errors-at (setq pos (previous-overlay-change pos)) face))))
     
     (unless messages
       (while (and (not messages) (< pos (point-max)))
-        (setq messages (ruby-show-errors-at (setq pos (next-overlay-change pos))))))
+        (setq messages (ruby-show-errors-at (setq pos (next-overlay-change pos)) face))))
 
-    (when messages
-      (goto-char pos))))
+    (if messages
+        (goto-char pos)
+      (unless arg
+        (ruby-find-error t)))))
 
 
 (defun ruby-up-sexp (&optional arg)
@@ -940,37 +947,40 @@ With ARG, do it that many times."
           (setq response (substring response (match-end 0)))
           (forward-line (- line-no last-line))
 
-          (if (and (not (eq ?: (string-to-char response)))
-                   (string-match "\\`[^\n]*\n\\( *\\)^\n" response))
-              (progn
-                (setq beg (point))
-                (forward-char (length (match-string 1 response)))
-                (setq end (point))
-                
-                (backward-sexp)
-                (if (< (point) beg)
-                    (goto-char beg)
-                  (setq beg (point))))
+          (when (or (eq face 'erm-syn-errline) (eq ruby-check-syntax 'errors-and-warnings))
+            (if (and (not (eq ?: (string-to-char response)))
+                     (string-match "\\`[^\n]*\n\\( *\\)^\n" response))
+                (progn
+                  (setq beg (point))
+                  (forward-char (length (match-string 1 response)))
+                  (setq end (point))
+                  
+                  (condition-case nil
+                      (backward-sexp)
+                    (error (back-to-indentation)))
+                  (if (< (point) beg)
+                      (goto-char beg)
+                    (setq beg (point))))
 
-            (move-end-of-line nil)
-            (skip-chars-backward " \n\t\r\v\f")
-            (while (eq 'font-lock-comment-face (get-text-property (point) 'face))
-              (backward-char))
-            (skip-chars-backward " \n\t\r\v\f")
-            (setq end (point))
-            (back-to-indentation)
-            (setq beg (point)))
+              (move-end-of-line nil)
+              (skip-chars-backward " \n\t\r\v\f")
+              (while (eq 'font-lock-comment-face (get-text-property (point) 'face))
+                (backward-char))
+              (skip-chars-backward " \n\t\r\v\f")
+              (setq end (point))
+              (back-to-indentation)
+              (setq beg (point)))
           
 
-          (if (eq face 'erm-syn-warnline)
-              (setq warn-count (1+ warn-count))
-            (setq error-count (1+ error-count)))
+            (if (eq face 'erm-syn-warnline)
+                (setq warn-count (1+ warn-count))
+              (setq error-count (1+ error-count)))
 
-          (setq ov (make-overlay beg end nil t t))
-          (overlay-put ov 'face           face)
-          (overlay-put ov 'help-echo      msg)
-          (overlay-put ov 'erm-syn-overlay  t)
-          (overlay-put ov 'priority (if (eq 'erm-syn-warnline face) 99 100))
+            (setq ov (make-overlay beg end nil t t))
+            (overlay-put ov 'face           face)
+            (overlay-put ov 'help-echo      msg)
+            (overlay-put ov 'erm-syn-overlay  t)
+            (overlay-put ov 'priority (if (eq 'erm-syn-warnline face) 99 100)))
 
           (setq last-line line-no)
           ))
