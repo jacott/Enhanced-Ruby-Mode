@@ -163,7 +163,7 @@
               (t (insert "# -*- coding: " coding-system " -*-\n"))
               )))))
 
- (defun erm-ruby-get-process ()
+(defun erm-ruby-get-process ()
   (when (and erm-ruby-process (not (equal (process-status erm-ruby-process) 'run)))
     (let ((message (and erm-parsing-p erm-response)))
       (erm-initialise)
@@ -292,7 +292,7 @@
   (define-key ruby-mode-map "\e\C-n" 'ruby-end-of-block)
   (define-key ruby-mode-map "\e\C-h" 'ruby-mark-defun)
   (define-key ruby-mode-map "\e\C-q" 'ruby-indent-exp)
-  (define-key ruby-mode-map "\C-c\C-e" 'ruby-insert-end)
+  (define-key ruby-mode-map "\C-c\C-e" 'ruby-find-error)
   (define-key ruby-mode-map "\C-c\C-f" 'ruby-insert-end)
   (define-key ruby-mode-map "\C-m" 'newline)
   (define-key ruby-mode-map "\C-c/" 'ruby-insert-end))
@@ -328,8 +328,9 @@
   (interactive)
   (kill-all-local-variables)
   (use-local-map ruby-mode-map)
+  (set (make-local-variable 'erm-e-w-status) nil)
   (setq major-mode 'ruby-mode
-        mode-name "EnhRuby"
+        mode-name '("EnhRuby" erm-e-w-status)
         comment-start "#"  ; used by comment-region; don't change it
         comment-end "")
   (ruby-mode-variables)
@@ -473,7 +474,7 @@ modifications to the buffer."
 
 (defun erm-filter (proc response)
   (setq erm-response (concat erm-response response))
-  (when (string= "\n\0\0\0\n" (substring erm-response -5 nil))
+  (when (and (> (length erm-response) 5) (string= "\n\0\0\0\n" (substring erm-response -5 nil)))
     (setq response (substring erm-response 0 -5))
     (setq erm-response "")
     (with-current-buffer erm-parse-buff
@@ -611,6 +612,39 @@ modifications to the buffer."
 (defun ruby-string-start-pos (pos)
   (when (< 0 (or (setq pos (previous-single-property-change pos 'face)) 0))
     (previous-single-property-change pos 'face)))
+
+(defun ruby-show-errors-at (pos)
+  (let ((overlays (overlays-at pos))
+        overlay
+        messages)
+
+    (while overlays
+      (setq overlay (car overlays))
+      (when (overlay-get overlay 'flymake-overlay)
+        (setq messages (cons (overlay-get overlay 'help-echo) messages)))
+      (setq overlays (cdr overlays)))
+
+    (message "%s" (mapconcat 'identity messages "\n"))
+    messages))
+
+
+(defun ruby-find-error ()
+  "Search back, then forward for a syntax error/warning.
+Display contents in mini-buffer."
+  (interactive)
+  (let (overlays
+        overlay
+        messages
+        (pos (point)))
+    (while (and (not messages) (> pos (point-min)))
+      (setq messages (ruby-show-errors-at (setq pos (previous-overlay-change pos)))))
+    
+    (unless messages
+      (while (and (not messages) (< pos (point-max)))
+        (setq messages (ruby-show-errors-at (setq pos (next-overlay-change pos))))))
+
+    (when messages
+      (goto-char pos))))
 
 
 (defun ruby-up-sexp (&optional arg)
@@ -880,17 +914,20 @@ With ARG, do it that many times."
   (save-excursion
     (flymake-delete-own-overlays)
     (goto-char (point-min))
-    (let ((last-line 1))
+    (let ((warn-count 0)
+          (error-count 0)
+          (e-w erm-e-w-status)
+          (last-line 1))
       (while (string-match ":\\([0-9]+\\): *\\(\\(warning\\)?[^\n]+\\)\n" response)
         (let (beg end ov
                   (line-no (string-to-number (match-string 1 response)))
-                  (msg (match-string 0 response))
+                  (msg (match-string 2 response))
                   (face (if (string= "warning" (match-string 3 response)) 'flymake-warnline 'flymake-errline)))
           (setq response (substring response (match-end 0)))
           (forward-line (- line-no last-line))
 
           (if (and (not (eq ?: (string-to-char response)))
-                   (string-match "\\`[^\n]*\n\\([. ] *\\)^\n" response))
+                   (string-match "\\`[^\n]*\n\\( *\\)^\n" response))
               (progn
                 (setq beg (point))
                 (forward-char (length (match-string 1 response)))
@@ -911,6 +948,10 @@ With ARG, do it that many times."
             (setq beg (point)))
           
 
+          (if (eq face 'flymake-warnline)
+              (setq warn-count (1+ warn-count))
+            (setq error-count (1+ error-count)))
+
           (setq ov (make-overlay beg end nil t t))
           (overlay-put ov 'face           face)
           (overlay-put ov 'help-echo      msg)
@@ -918,7 +959,13 @@ With ARG, do it that many times."
           (overlay-put ov 'priority (if (eq 'flymake-warnline face) 99 100))
 
           (setq last-line line-no)
-          )))))
+          ))
+      (if (eq (+ error-count warn-count) 0)
+          (setq e-w nil)
+        (setq e-w (format ":%d/%d" error-count warn-count)))
+      (when (not (string= e-w erm-e-w-status))
+        (setq erm-e-w-status e-w)
+        (force-mode-line-update)))))
 
 (defun erm-do-syntax-check ()
   (when (and (not erm-parsing-p) (car erm-syntax-check-list))
