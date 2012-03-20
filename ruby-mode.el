@@ -45,7 +45,7 @@
   "Highlight syntax errors and warnings."
   :type '(radio (const :tag "None" nil)
                 (const :tag "Errors" errors)
-                (symbol :tag "Errors and warnings" errors-and-warnings))
+                (const :tag "Errors and warnings" errors-and-warnings))
   :group 'ruby)
 
 (defcustom ruby-indent-tabs-mode nil
