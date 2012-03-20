@@ -128,6 +128,17 @@
   :group 'ruby)
 
 
+(defface erm-syn-errline
+  '((t (:box (:line-width 1 :color "red"))))
+  "Face used for marking error lines."
+  :group 'ruby)
+
+(defface erm-syn-warnline
+  '((t (:box (:line-width 1 :color "orange"))))
+  "Face used for marking warning lines."
+  :group 'ruby)
+
+
 (defun ruby-mode-set-encoding ()
   (save-excursion
     (widen)
@@ -620,7 +631,7 @@ modifications to the buffer."
 
     (while overlays
       (setq overlay (car overlays))
-      (when (overlay-get overlay 'flymake-overlay)
+      (when (overlay-get overlay 'erm-syn-overlay)
         (setq messages (cons (overlay-get overlay 'help-echo) messages)))
       (setq overlays (cdr overlays)))
 
@@ -912,7 +923,10 @@ With ARG, do it that many times."
 
 (defun erm-syntax-response (response)
   (save-excursion
-    (flymake-delete-own-overlays)
+    (dolist (ol (overlays-in (point-min) (point-max)))
+    (when (and (overlayp ol) (overlay-get ol 'erm-syn-overlay))
+        (delete-overlay ol)
+        ))
     (goto-char (point-min))
     (let ((warn-count 0)
           (error-count 0)
@@ -922,7 +936,7 @@ With ARG, do it that many times."
         (let (beg end ov
                   (line-no (string-to-number (match-string 1 response)))
                   (msg (match-string 2 response))
-                  (face (if (string= "warning" (match-string 3 response)) 'flymake-warnline 'flymake-errline)))
+                  (face (if (string= "warning" (match-string 3 response)) 'erm-syn-warnline 'erm-syn-errline)))
           (setq response (substring response (match-end 0)))
           (forward-line (- line-no last-line))
 
@@ -948,15 +962,15 @@ With ARG, do it that many times."
             (setq beg (point)))
           
 
-          (if (eq face 'flymake-warnline)
+          (if (eq face 'erm-syn-warnline)
               (setq warn-count (1+ warn-count))
             (setq error-count (1+ error-count)))
 
           (setq ov (make-overlay beg end nil t t))
           (overlay-put ov 'face           face)
           (overlay-put ov 'help-echo      msg)
-          (overlay-put ov 'flymake-overlay  t)
-          (overlay-put ov 'priority (if (eq 'flymake-warnline face) 99 100))
+          (overlay-put ov 'erm-syn-overlay  t)
+          (overlay-put ov 'priority (if (eq 'erm-syn-warnline face) 99 100))
 
           (setq last-line line-no)
           ))
