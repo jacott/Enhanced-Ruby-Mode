@@ -644,10 +644,12 @@ With ARG, do it that many times."
     (goto-char
      (save-excursion
        (while (>= (setq arg (1- arg)) 0)
-         (while (progn
+         (while (and 
+                 (> (point) (point-min))
+                 (progn
                   (ruby-backward-sexp 1)
                   (setq prop (get-text-property (point) 'indent))
-                  (not (and (eq prop 'b) (looking-at ruby-defun-beg-re))))))
+                  (not (and (eq prop 'b) (looking-at ruby-defun-beg-re)))))))
        (point)))))
 
 
@@ -699,13 +701,16 @@ With ARG, do it that many times."
     (goto-char
      (save-excursion
        (while (>= (setq arg (1- arg)) 0)
-         (while (progn
-                  (ruby-forward-sexp 1)
-                  (setq prop (get-text-property (point) 'indent))
-                  (not (and (eq prop 'e)
-                            (save-excursion 
-                              (ruby-backward-sexp 1)
-                              (looking-at ruby-defun-beg-re)))))))
+         (while (and 
+                 (< (point) (point-max))
+                 (progn
+                   (ruby-forward-sexp 1)
+                   (setq prop (get-text-property (point) 'indent))
+                   (not (and (eq prop 'e)
+                             (save-excursion 
+                               (ruby-backward-sexp 1)
+                               (looking-at ruby-defun-beg-re))))))))
+       (forward-word)
        (point)))))
 
 (defun ruby-end-of-block (&optional arg)
