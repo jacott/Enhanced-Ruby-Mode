@@ -41,6 +41,10 @@
   "The ruby program to parse the source."
   :group 'ruby)
 
+(defcustom ruby-check-syntax t
+  "Highlight syntax errors and warnings."
+  :type 'boolean :group 'ruby)
+
 (defcustom ruby-indent-tabs-mode nil
   "*Indentation can insert tabs in ruby mode if this is non-nil."
   :type 'boolean :group 'ruby)
@@ -70,6 +74,7 @@
 (defcustom ruby-deep-indent-paren t
   "*Deep indent lists in parenthesis when non-nil."
   :group 'ruby)
+(put 'ruby-deep-indent-paren 'safe-local-variable 'booleanp)
 
 (defcustom ruby-deep-indent-paren-style nil
   "Ignored in enhanced ruby mode."
@@ -158,7 +163,7 @@
               (t (insert "# -*- coding: " coding-system " -*-\n"))
               )))))
 
-(defun erm-ruby-get-process ()
+ (defun erm-ruby-get-process ()
   (when (and erm-ruby-process (not (equal (process-status erm-ruby-process) 'run)))
     (let ((message (and erm-parsing-p erm-response)))
       (erm-initialise)
@@ -191,9 +196,11 @@
 (defvar erm-syntax-check-list nil "Private variable.")
 
 (defun erm-reset-syntax-buffers (list)
-  (when (car list)
-    (with-current-buffer (car list) (setq need-syntax-check-p nil))
-    (erm-reset-syntax-buffers (cdr list))))
+  (let ((buffer (car list)))
+    (when buffer
+      (when (buffer-live-p buffer)
+        (with-current-buffer buffer (setq need-syntax-check-p nil)))
+      (erm-reset-syntax-buffers (cdr list)))))
 
 
 (defun erm-initialise ()
@@ -430,7 +437,7 @@ modifications to the buffer."
 
 
 (defun erm-req-parse (min max len)
-  (unless need-syntax-check-p
+  (when (and ruby-check-syntax (not need-syntax-check-p))
     (setq need-syntax-check-p t)
     (setq erm-syntax-check-list (cons (current-buffer) erm-syntax-check-list)))
   (let ((pc (if erm-parsing-p
@@ -440,14 +447,7 @@ modifications to the buffer."
               (setq erm-response "")
               (setq erm-parsing-p t)
               (if (not erm-full-parse-p)
-                  (if (or erm-no-parse-needed-p
-                          (let* ((ichar (and (eq len 0) (eq (1+ min) max) (buffer-substring-no-properties min max)))
-                                 (face (and ichar (get-text-property min 'face))))
-                            (and ichar 
-                                 (or (and (eq face 'font-lock-string-face) (string-match "[^\\@#{\"]" ichar))
-                                     (eq face 'font-lock-comment-face)))))
-                      (progn (setq erm-parsing-p nil) 'a) 
-                    'p)
+                  (if erm-no-parse-needed-p (progn (setq erm-parsing-p nil) 'a) 'p)
                 (setq min 1
                       max (1+ (buffer-size))
                       len 0
@@ -698,9 +698,7 @@ With ARG, do it that many times."
   (unless arg (setq arg 1))
   (let ((cont t)
         prop)
-    (goto-char
-     (save-excursion
-       (while (>= (setq arg (1- arg)) 0)
+    (while (>= (setq arg (1- arg)) 0)
          (while (and 
                  (< (point) (point-max))
                  (progn
@@ -710,8 +708,8 @@ With ARG, do it that many times."
                              (save-excursion 
                                (ruby-backward-sexp 1)
                                (looking-at ruby-defun-beg-re))))))))
-       (forward-word)
-       (point)))))
+    (forward-word)
+    (point)))
 
 (defun ruby-end-of-block (&optional arg)
   "Move forwards across one balanced expression (sexp) looking for a block end.
@@ -920,26 +918,25 @@ With ARG, do it that many times."
           (overlay-put ov 'priority (if (eq 'flymake-warnline face) 99 100))
 
           (setq last-line line-no)
-          ;; (message "line %s, type %s, message %s\n" (match-string 1 response) 
-          ;;          (match-string 3 response))
           )))))
 
 (defun erm-do-syntax-check ()
   (when (and (not erm-parsing-p) (car erm-syntax-check-list))
     (with-current-buffer (car erm-syntax-check-list)
       (setq erm-syntax-check-list (cdr erm-syntax-check-list))
-      (setq need-syntax-check-p nil)
-      (process-send-string (erm-ruby-get-process) (concat "c" (number-to-string erm-buff-num) 
-                                                          ":\n\0\0\0\n")))))
-
+      (when need-syntax-check-p
+        (setq need-syntax-check-p nil)
+        (setq erm-parsing-p t)
+        (process-send-string (erm-ruby-get-process) (concat "c" (number-to-string erm-buff-num) 
+                                                            ":\n\0\0\0\n"))))))
 
 (defun erm-parse (response)
   (let (interrupted-p
         (cmd (aref response 0))
         (send-next-p (eq 'a erm-parsing-p)))
+    (setq erm-parsing-p nil)
     (cond
      ((eq ?\( cmd)
-          (setq erm-parsing-p nil)
           (setq interrupted-p
                 (condition-case nil
                     (catch 'interrupted
@@ -949,13 +946,7 @@ With ARG, do it that many times."
                       nil)
                   (error t)))
           (if interrupted-p
-              (progn
-                (if (string-match "^)\\()\\)?" response)
-                    (if (match-string 1 response)
-                        (error "syntax check:\n%s" (substring response 2))
-                      (error "%s" (substring response 1))
-                      (setq erm-full-parse-p t))
-                  (setq erm-full-parse-p t)))
+              (setq erm-full-parse-p t)
 
             (if erm-full-parse-p 
                 (ruby-fontify-buffer)
@@ -967,7 +958,8 @@ With ARG, do it that many times."
                 ))))
 
      ((eq ?c cmd)
-      (erm-syntax-response (substring response 1))
+      (unless need-syntax-check-p
+        (erm-syntax-response (substring response 1)))
       (erm-do-syntax-check))
 
      (t 
