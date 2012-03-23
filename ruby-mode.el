@@ -1,13 +1,13 @@
 ;;; ruby-mode.el --- Major mode for editing Ruby files
 
-;; Copyright (C) 2010
+;; Copyright (C) 2010, 2011, 2012
 ;;   Geoff Jacobsen
 
 ;; Author: Geoff Jacobsen
 ;; URL: http://http://github.com/jacott/Enhanced-Ruby-Mode
 ;; Created: Sep 18 2010
-;; Keywords: languages ruby
-;; Version: 0.1
+;; Keywords: languages elisp, ruby
+;; Version: 1.0
 
 ;; This file is not part of GNU Emacs.
 
@@ -26,7 +26,7 @@
 
 ;;; Commentary:
 
-;; Provides fontification, indentation, and navigation for Ruby code.
+;; Provides fontification, indentation, syntax checking, and navigation for Ruby code.
 ;;
 ;; If you're installing manually, you should add this to your .emacs
 ;; file after putting it on your load path:
@@ -302,6 +302,7 @@
   (define-key ruby-mode-map "\e\C-e" 'ruby-end-of-defun)
   (define-key ruby-mode-map "\e\C-b" 'ruby-backward-sexp)
   (define-key ruby-mode-map "\e\C-f" 'ruby-forward-sexp)
+  (define-key ruby-mode-map "\e\C-u" 'ruby-up-sexp)
   (define-key ruby-mode-map "\e\C-p" 'ruby-beginning-of-block)
   (define-key ruby-mode-map "\e\C-n" 'ruby-end-of-block)
   (define-key ruby-mode-map "\e\C-h" 'ruby-mark-defun)
@@ -534,12 +535,15 @@ modifications to the buffer."
           (ruby-backward-sexp)
           (if (not (eq 'd (get-text-property (point) 'indent)))
               (current-column)
-            (ruby-calculate-indent-1 (point) (line-beginning-position))))
+            (setq pos (point))
+            (ruby-skip-non-indentable)
+            (ruby-calculate-indent-1 pos (line-beginning-position))))
 
          ((eq 'r prop)
           (if ruby-deep-indent-paren
               (progn (ruby-backward-sexp) (current-column))
             (forward-line -1)
+            (ruby-skip-non-indentable)
             (- (ruby-calculate-indent-1 pos (line-beginning-position)) ruby-indent-level)))
 
          ((or (eq 'font-lock-string-face face) 
@@ -551,19 +555,24 @@ modifications to the buffer."
          (t 
           (forward-line -1)
           
-          (while 
-              (progn
-                (while (and (< (point-min) (line-beginning-position)) (looking-at "^[[:space:]]*\\(#.*\\)?$"))
-                  (skip-chars-backward " \n\t\r\v\f")
-                  (forward-line 0))
-
-                (setq face (get-text-property (point) 'face))
-                (or (eq 'font-lock-string-face face) 
-                    (eq 'ruby-heredoc-delimiter-face face) 
-                    (and (eq 'font-lock-variable-name-face face)
-                         (looking-at "#"))))
-            (forward-line -1))
+          (ruby-skip-non-indentable)
           (ruby-calculate-indent-1 pos (line-beginning-position))))))))
+
+(defun ruby-skip-non-indentable ()
+  (forward-line 0)
+  (while 
+      (progn
+        (while (and (< (point-min) (line-beginning-position)) (looking-at "^[[:space:]]*\\(#.*\\)?$"))
+          (skip-chars-backward " \n\t\r\v\f")
+          (forward-line 0))
+
+        (setq face (get-text-property (point) 'face))
+        (or (eq 'font-lock-string-face face) 
+            (eq 'ruby-heredoc-delimiter-face face) 
+            (and (eq 'font-lock-variable-name-face face)
+                 (looking-at "#"))))
+    (forward-line -1))  
+)
 
 
 (defun ruby-calculate-indent-1 (limit pos)
@@ -679,8 +688,7 @@ With ARG, do it that many times."
                         (cond
                          ((or (eq prop 'l) (eq prop 'b) (eq prop 'd)) (1- count))
                          ((or (eq prop 'r) (eq prop 'e)) (1+ count))
-                         ((eq prop 's) count)
-                         (t 0))))
+                         (t count))))
         (setq prop (and (setq pos (ruby-previous-indent-change pos))
                         (get-text-property pos 'indent))))
       
