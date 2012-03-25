@@ -190,7 +190,6 @@
                          nil
                          enh-ruby-program (concat (file-name-directory (find-lisp-object-file-name 'erm-parse (symbol-function 'erm-parse)))
                                                   "ruby/erm.rb")))
-    (set-process-filter-multibyte erm-ruby-process t)
     (set-process-coding-system erm-ruby-process 'utf-8 'utf-8)
     (set-process-filter erm-ruby-process 'erm-filter)
     (set-process-query-on-exit-flag erm-ruby-process nil))
