@@ -185,20 +185,29 @@
           (error "%s" message) 
         (throw 'interrupted t))))
   (unless erm-ruby-process
-    (setq erm-ruby-process
-          (start-process "erm-ruby-process"
-                         nil
-                         enh-ruby-program (concat (file-name-directory (find-lisp-object-file-name 'erm-parse (symbol-function 'erm-parse)))
-                                                  "ruby/erm.rb")))
-    (set-process-coding-system erm-ruby-process 'utf-8 'utf-8)
-    (set-process-filter erm-ruby-process 'erm-filter)
-    (set-process-query-on-exit-flag erm-ruby-process nil))
+    (let ((process-connection-type nil))
+      (setq erm-ruby-process
+            (start-process "erm-ruby-process"
+                           nil
+                           enh-ruby-program (concat (erm-source-dir)
+                                                    "ruby/erm.rb")))
+      (set-process-coding-system erm-ruby-process 'utf-8 'utf-8)
+      (set-process-filter erm-ruby-process 'erm-filter)
+      (set-process-query-on-exit-flag erm-ruby-process nil)))
 
   erm-ruby-process)
 
 (defvar erm-response nil "Private variable.")
 (defvar erm-parsing-p nil "Private variable.")
 (defvar erm-no-parse-needed-p nil "Private variable.")
+
+(defvar erm-source-dir nil "Private variable.")
+
+(defun erm-source-dir ()
+  (or erm-source-dir
+    (setq erm-source-dir (file-name-directory (find-lisp-object-file-name 
+                                               'erm-source-dir (symbol-function 'erm-source-dir))))))
+
 
 (defvar erm-ruby-process nil
   "The current erm process where emacs is interacting with")
