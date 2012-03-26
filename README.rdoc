@@ -15,7 +15,7 @@ Syntax checking is also preformed.
 
 == TODO
 
-* Optimisation. Parses and fontifies whole buffer for most modifications - it still appears to run fast enough on large files.
+* Optimisation; currently parses and fontifies whole buffer for most modifications - it still appears to run fast enough on large files.
 
 * Suggestions?
 
@@ -23,7 +23,7 @@ Syntax checking is also preformed.
 == Synopsis
 
    (add-to-list 'load-path "(path-to)/Enhanced-Ruby-Mode") ; must be added after any path containing old ruby-mode
-   (setq enh-ruby-program "(path-to-ruby1.9.2)/bin/ruby") ; so that still works if ruby points to ruby1.8
+   (setq enh-ruby-program "(path-to-ruby1.9.3)/bin/ruby") ; so that still works if ruby points to ruby1.8
    (require 'ruby-mode)
 
 == Requirements

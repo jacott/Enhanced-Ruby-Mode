@@ -968,15 +968,22 @@ With ARG, do it that many times."
                      (string-match "\\`[^\n]*\n\\( *\\)^\n" response))
                 (progn
                   (setq beg (point))
-                  (forward-char (length (match-string 1 response)))
+                  (condition-case nil
+                      (forward-char  (length (match-string 1 response)))
+                    (error (goto-char (point-max))))
                   (setq end (point))
                   
                   (condition-case nil
-                      (backward-sexp)
+                      (progn
+                        (backward-sexp)
+                        (forward-sexp))
+                    
                     (error (back-to-indentation)))
-                  (if (< (point) beg)
-                      (goto-char beg)
-                    (setq beg (point))))
+                  (setq beg (if (>= (point) end)
+                                (1- end)
+                              (if (< (point) beg)
+                                  (if (>= beg end) (1- end) beg)
+                                (point)))))
 
               (move-end-of-line nil)
               (skip-chars-backward " \n\t\r\v\f")
