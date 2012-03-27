@@ -480,9 +480,7 @@ class ErmBuffer
 
   # not used
   def check_syntax(fname='',code=@buffer)
-    code = code.sub(/\A(?:\s*\#.*$)*(\n)?/n) {
-      "#$&#{"\n" if $1 && !$2}BEGIN{return ''}"
-    }
+    code = "BEGIN{return}\n" << code
     $VERBOSE=true
     eval(code, nil, fname, 0)
   rescue SyntaxError
