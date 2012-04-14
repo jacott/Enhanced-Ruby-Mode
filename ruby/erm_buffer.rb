@@ -132,7 +132,6 @@ class ErmBuffer
       module_eval(<<-End, __FILE__, __LINE__ + 1)
         def on_#{event}(tok)
           tok.force_encoding(@file_encoding) unless tok.encoding.equal?(@file_encoding)
-          # fixme :nor, lineno(), column(), :#{event}, tok, tok.encoding
           add(:#{event},tok)
         end
       End
@@ -422,26 +421,6 @@ class ErmBuffer
       res=@res.map.with_index{|v,i| v ? "(#{i} #{v.join(' ')})" : nil}.flatten.join
       "((#{@src_size} #{@point_min} #{@point_max} #{@indent_stack.join(' ')})#{res})"
     end
-
-    def compile_error(msg)
-      # fixme @buf.last,msg
-    end
-
-    private
-
-    # fixme PARSER_EVENTS
-
-    # #PARSER_EVENTS
-    # [:paren, :def,:var_ref,:class,]
-    #   .each do |event|
-    #   module_eval(<<-End, __FILE__, __LINE__ + 1)
-    #     def on_#{event}(*args)
-    #       args.unshift :#{event}
-    #       fixme args
-    #       @count
-    #     end
-    #   End
-    # end
   end
 
   FONT_LOCK_NAMES= {
@@ -449,6 +428,7 @@ class ErmBuffer
     sp: 0,
     ident: 0,
     tstring_content: 1, # font-lock-string-face
+
     const: 2,           # font-lock-type-face
     ivar: 3,            # font-lock-variable-name-face
     arglist: 3,
@@ -499,7 +479,7 @@ class ErmBuffer
     if !@first_count || pbeg < @first_count
       @first_count=pbeg
     end
-    # fixme :add_content, pbeg, @first_count
+
     if cmd == :r || @buffer.empty?
       @buffer=content
     else

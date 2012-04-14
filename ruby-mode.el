@@ -720,7 +720,6 @@ With ARG, do it that many times."
                   (not (and (eq prop 'b) (looking-at ruby-defun-beg-re)))))))
        (point)))))
 
-
 (defun ruby-mark-defun ()
   "Put mark at end of this Ruby definition, point at beginning."
   (interactive)
@@ -865,7 +864,6 @@ With ARG, do it that many times."
     (ruby-indent-line t)
     ))
 
-
 (defun ruby-previous-indent-change (pos)
   (and pos (setq pos (1- pos))
        (>= pos (point-min))
@@ -883,13 +881,6 @@ With ARG, do it that many times."
                 (get-text-property (1+ pos) 'indent)
                 (1+ pos))
            (next-single-property-change pos 'indent))))
-
-(defun ruby-calculate-indent-2 ()
-  (let ((limit (1- (point))))
-    (if (<= limit (point-min))
-        0
-      (beginning-of-line)
-      (ruby-calculate-indent-1 limit (point)))))
 
 (defun ruby-indent-line (&optional flag)
   "Correct indentation of the current ruby line."
@@ -1015,14 +1006,18 @@ With ARG, do it that many times."
         (force-mode-line-update)))))
 
 (defun erm-do-syntax-check ()
-  (when (and (not erm-parsing-p) (car erm-syntax-check-list))
-    (with-current-buffer (car erm-syntax-check-list)
+  (unless erm-parsing-p
+    (let ((buffer (car erm-syntax-check-list)))
       (setq erm-syntax-check-list (cdr erm-syntax-check-list))
-      (when need-syntax-check-p
-        (setq need-syntax-check-p nil)
-        (setq erm-parsing-p t)
-        (process-send-string (erm-ruby-get-process) (concat "c" (number-to-string erm-buff-num) 
-                                                            ":\n\0\0\0\n"))))))
+      (if (buffer-live-p buffer)
+          (with-current-buffer buffer
+            (when need-syntax-check-p
+              (setq need-syntax-check-p nil)
+              (setq erm-parsing-p t)
+              (process-send-string (erm-ruby-get-process) (concat "c" (number-to-string erm-buff-num) 
+                                                                  ":\n\0\0\0\n"))))
+        (if erm-syntax-check-list
+            (erm-do-syntax-check))))))
 
 (defun erm-parse (response)
   (let (interrupted-p

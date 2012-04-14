@@ -15,12 +15,12 @@ class BufferStore
   end
 end
 
-module Kernel
-  def fixme(*args)
-    $fixme.puts args.inspect
-    $fixme.flush
-  end
-end
+# module Kernel
+#   def fixme(*args)
+#     $fixme.puts args.inspect
+#     $fixme.flush
+#   end
+# end
 
 STDIN.set_encoding("UTF-8")
 
@@ -41,7 +41,7 @@ begin
     when :c
       STDOUT.puts 'c'
       STDOUT.flush # need to flush early because ruby writes warnings directly to STDOUT
-      STDOUT.puts "#{buf.check_syntax}\n\n\0\0\0\n"
+      STDOUT.puts "#{buf.check_syntax}\n\n\0\0\0"
       STDOUT.flush
     when :k
       store.rm(bn)
@@ -51,7 +51,7 @@ begin
       unless cmd == :a
         r=buf.parse
         # fixme r
-        STDOUT.puts(r << "\n\0\0\0\n")
+        STDOUT.puts(r << "\n\0\0\0")
         STDOUT.flush
       end
     end
