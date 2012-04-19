@@ -186,7 +186,7 @@
 (defun erm-ruby-get-process ()
   (when (and erm-ruby-process (not (equal (process-status erm-ruby-process) 'run)))
     (let ((message (and erm-parsing-p erm-response)))
-      (erm-initialise)
+      (erm-reset)
       (if message 
           (error "%s" message) 
         (throw 'interrupted t))))
@@ -199,7 +199,10 @@
                                                     "ruby/erm.rb")))
       (set-process-coding-system erm-ruby-process 'utf-8 'utf-8)
       (set-process-filter erm-ruby-process 'erm-filter)
-      (set-process-query-on-exit-flag erm-ruby-process nil)))
+      (set-process-query-on-exit-flag erm-ruby-process nil)
+      (process-send-string (erm-ruby-get-process) (concat "x0:"
+                                                          (mapconcat 'identity ruby-extra-keywords " ")
+                                                          ":\n\0\0\0\n"))))
 
   erm-ruby-process)
 
@@ -230,8 +233,9 @@
         (with-current-buffer buffer (setq need-syntax-check-p nil)))
       (erm-reset-syntax-buffers (cdr list)))))
 
-
-(defun erm-initialise ()
+(defun erm-reset ()
+  "Reset all ruby-mode buffers and restart the ruby parser"
+  (interactive)
   (erm-reset-syntax-buffers erm-syntax-check-list) 
   (setq erm-reparse-list nil
         erm-syntax-check-list nil
@@ -241,11 +245,7 @@
   (when erm-ruby-process
     (delete-process erm-ruby-process) 
     (setq erm-ruby-process nil))
-
-  (process-send-string (erm-ruby-get-process) (concat "x0:"
-                                                      (mapconcat 'identity ruby-extra-keywords " ")
-                                                      ":\n\0\0\0\n"))
-
+  
   (dolist (buf (buffer-list))
     (with-current-buffer buf
       (when (eq 'ruby-mode major-mode)
@@ -253,7 +253,7 @@
 
 
 
-(erm-initialise)
+(erm-reset)
 
 (defun erm-major-mode-changed ()
   (erm-buffer-killed))
