@@ -50,7 +50,8 @@
 
 (defcustom ruby-extra-keywords
   nil
-  "Directories with Rails classes"
+  "List of idents that will be fontified as keywords. `erm-reset'
+will need to be called inorder for any changes to take effect."
   :group 'ruby
   :type '(repeat string))
 
@@ -234,7 +235,7 @@
       (erm-reset-syntax-buffers (cdr list)))))
 
 (defun erm-reset ()
-  "Reset all ruby-mode buffers and restart the ruby parser"
+  "Reset all ruby-mode buffers and restart the ruby parser."
   (interactive)
   (erm-reset-syntax-buffers erm-syntax-check-list) 
   (setq erm-reparse-list nil
