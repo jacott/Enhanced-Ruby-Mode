@@ -9,6 +9,22 @@ class TestErmBuffer < Test::Unit::TestCase
     buf.parse
   end
 
+  def setup
+    super
+    ErmBuffer.set_extra_keywords({})
+  end
+
+  def test_extra_keywords
+    ErmBuffer.set_extra_keywords(%w[require])
+    assert_equal "((43 1 43 c 31)(0 1 2 9 10 15 31 38 39)(1 11 14)(7 10 11 14 15)(10 2 9 31 38))",
+    parse_text(%q{
+require 'abc'
+x.require z
+x.
+require
+     })
+  end
+
   def test_reset_mode
     assert_equal "((32 1 32 l 10 r 22)(0 1 2 8 9 11 14 16 17 19 22)(1 23 24)(3 9 11 22 23)(5 14 16)(11 3 8 24 28)(12 2 3 17 19))",
      parse_text(%q{a=<<END

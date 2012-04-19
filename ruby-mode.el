@@ -48,6 +48,12 @@
                 (const :tag "Errors and warnings" errors-and-warnings))
   :group 'ruby)
 
+(defcustom ruby-extra-keywords
+  nil
+  "Directories with Rails classes"
+  :group 'ruby
+  :type '(repeat string))
+
 (defcustom ruby-indent-tabs-mode nil
   "*Indentation can insert tabs in ruby mode if this is non-nil."
   :type 'boolean :group 'ruby)
@@ -231,10 +237,14 @@
         erm-syntax-check-list nil
         erm-parsing-p nil
         erm-parse-buff nil
-        erm-next-buff-num 0)
+        erm-next-buff-num 1)
   (when erm-ruby-process
     (delete-process erm-ruby-process) 
     (setq erm-ruby-process nil))
+
+  (process-send-string (erm-ruby-get-process) (concat "x0:"
+                                                      (mapconcat 'identity ruby-extra-keywords " ")
+                                                      ":\n\0\0\0\n"))
 
   (dolist (buf (buffer-list))
     (with-current-buffer buf
@@ -388,9 +398,6 @@
 
   (set (make-local-variable 'imenu-create-index-function)
        'ruby-imenu-create-index)
-  
-  (set (make-local-variable #'font-lock-syntactic-face-function)
-       (lambda (state) nil))
 
   (add-hook 'change-major-mode-hook 'erm-major-mode-changed nil t)
   (add-hook 'kill-buffer-hook 'erm-buffer-killed nil t)
@@ -554,8 +561,7 @@ modifications to the buffer."
             (ruby-skip-non-indentable)
             (- (ruby-calculate-indent-1 pos (line-beginning-position)) ruby-indent-level)))
 
-         ((or (eq 'font-lock-string-face face) 
-              (eq 'ruby-heredoc-delimiter-face face) 
+         ((or (memq face '(font-lock-string-face ruby-heredoc-delimiter-face))
               (and (eq 'font-lock-variable-name-face face)
                    (looking-at "#")))
           (current-column))
@@ -566,22 +572,24 @@ modifications to the buffer."
           (ruby-skip-non-indentable)
           (ruby-calculate-indent-1 pos (line-beginning-position))))))))
 
+(defun erm-looking-at-not-indentable ()
+  (skip-syntax-forward " " (line-end-position))
+  (let ((face (get-text-property (point) 'face)))
+    (or (= (point) (line-end-position))
+        (memq face '(font-lock-string-face font-lock-comment-face ruby-heredoc-delimiter-face))
+        (and (eq 'font-lock-variable-name-face face)
+             (looking-at "#"))
+        (and (memq face '(ruby-regexp-delimiter-face ruby-string-delimiter-face))
+             (> (point) (point-min))
+             (eq (get-text-property (1- (point)) 'face) 'font-lock-string-face)))))
+
+
 (defun ruby-skip-non-indentable ()
   (forward-line 0)
-  (while 
-      (progn
-        (while (and (< (point-min) (line-beginning-position)) (looking-at "^[[:space:]]*\\(#.*\\)?$"))
-          (skip-chars-backward " \n\t\r\v\f")
-          (forward-line 0))
-
-        (setq face (get-text-property (point) 'face))
-        (or (eq 'font-lock-string-face face) 
-            (eq 'ruby-heredoc-delimiter-face face) 
-            (and (eq 'font-lock-variable-name-face face)
-                 (looking-at "#"))))
-    (forward-line -1))  
-)
-
+  (while (and (> (point) (point-min))
+              (erm-looking-at-not-indentable))
+    (skip-chars-backward " \n\t\r\v\f")
+    (forward-line 0)))
 
 (defun ruby-calculate-indent-1 (limit pos)
   (goto-char pos)

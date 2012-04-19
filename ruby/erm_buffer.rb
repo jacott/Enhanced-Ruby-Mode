@@ -121,7 +121,7 @@ class ErmBuffer
       add(:rem,tok)
     end
 
-    for sym in [:backref, :embexpr_end, :float, :int,
+    for sym in [:embexpr_end, :float, :int,
                 :qwords_beg, :words_beg, :words_sep]
       alias_method "on_#{sym}", :on_backref
     end
@@ -167,6 +167,7 @@ class ErmBuffer
     end
 
     def on_period(tok)
+      @mode||=:period
       add(:rem, tok, tok.size, false, :cont)
     end
 
@@ -328,8 +329,14 @@ class ErmBuffer
           add(:label,tok)
         when :predef, :def
           add(:defname,tok)
-        else
+        when :period
           add(:ident, tok)
+        else
+          if ErmBuffer.extra_keywords.include? tok
+            add(:kw, tok)
+          else
+            add(:ident, tok)
+          end
         end
       r
     end
@@ -460,9 +467,10 @@ class ErmBuffer
 
   # not used
   def check_syntax(fname='',code=@buffer)
-    code = "BEGIN{return}\n" << code
     $VERBOSE=true
-    eval(code, nil, fname, 0)
+    # eval but do not run code
+    eval("BEGIN{return}\n#{code}", nil, fname, 0)
+
   rescue SyntaxError
     $!.message
   rescue
@@ -496,5 +504,14 @@ class ErmBuffer
     parser=ErmBuffer::Parser.new(@buffer,@point_min,@point_max,@first_count||0)
     @first_count=nil
     parser.parse
+  end
+
+  @@extra_keywords={}
+  def self.set_extra_keywords(keywords)
+    @@extra_keywords=keywords.each.with_object({}) {|o,h| h[o]=true}
+  end
+
+  def self.extra_keywords
+    @@extra_keywords
   end
 end

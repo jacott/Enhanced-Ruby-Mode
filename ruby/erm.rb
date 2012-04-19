@@ -6,8 +6,9 @@ class BufferStore
   end
 
   def get_buffer(buf_num)
-    @buffers[buf_num] ||
-     @buffers[buf_num]=ErmBuffer.new
+    if buf_num > 0
+      @buffers[buf_num] || @buffers[buf_num]=ErmBuffer.new
+    end
   end
 
   def rm(buf_num)
@@ -38,11 +39,11 @@ begin
     args=c[1..-6].split(':',6)
     buf=store.get_buffer(bn=args.shift.to_i)
     case cmd
+    when :x
+      ErmBuffer.set_extra_keywords(args.first.split(' '))
     when :c
-      STDOUT.puts 'c'
-      STDOUT.flush # need to flush early because ruby writes warnings directly to STDOUT
-      STDOUT.puts "#{buf.check_syntax}\n\n\0\0\0"
-      STDOUT.flush
+      STDERR.print 'c'
+      STDERR.puts "#{buf.check_syntax}\n\n\0\0\0"
     when :k
       store.rm(bn)
       # $fixme.puts "Killed"
@@ -51,8 +52,7 @@ begin
       unless cmd == :a
         r=buf.parse
         # fixme r
-        STDOUT.puts(r << "\n\0\0\0")
-        STDOUT.flush
+        STDERR.puts(r << "\n\0\0\0")
       end
     end
     # $fixme.puts buf.buffer
@@ -63,7 +63,6 @@ rescue
   # $fixme.puts $!.message
   # $fixme.puts $!.backtrace
   # $fixme.flush
-  STDOUT.puts "e#{$!.message}: #{$!.backtrace.join("\n")}\n\0\0\0\n"
-  STDOUT.flush
+  STDERR.puts "e#{$!.message}: #{$!.backtrace.join("\n")}\n\0\0\0\n"
 end
 

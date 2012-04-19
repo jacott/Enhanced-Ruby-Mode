@@ -1,5 +1,6 @@
 
 
+
 * Optimise parsing
 - store 'a' commands in separate string and add all at once when another command comes; minimises inserts into large string.
 - use array instead of string: can use gets to parse more lines, can store meta info from last parse
