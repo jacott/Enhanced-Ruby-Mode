@@ -106,7 +106,8 @@ class ErmBuffer
       end
     end
 
-    def initialize(src,point_min,point_max,first_count)
+    def initialize(ermbuffer,src,point_min,point_max,first_count)
+      @ermbuffer=ermbuffer
       @point_min=point_min
       @point_max=point_max
       @src=src
@@ -332,7 +333,7 @@ class ErmBuffer
         when :period
           add(:ident, tok)
         else
-          if ErmBuffer.extra_keywords.include? tok
+          if @ermbuffer.extra_keywords.include? tok
             add(:kw, tok)
           else
             add(:ident, tok)
@@ -501,7 +502,7 @@ class ErmBuffer
   end
 
   def parse
-    parser=ErmBuffer::Parser.new(@buffer,@point_min,@point_max,@first_count||0)
+    parser=ErmBuffer::Parser.new(self,@buffer,@point_min,@point_max,@first_count||0)
     @first_count=nil
     parser.parse
   end
@@ -511,7 +512,11 @@ class ErmBuffer
     @@extra_keywords=keywords.each.with_object({}) {|o,h| h[o]=true}
   end
 
-  def self.extra_keywords
-    @@extra_keywords
+  def set_extra_keywords(keywords)
+    @extra_keywords=keywords.each.with_object({}) {|o,h| h[o]=true}
+  end
+
+  def extra_keywords
+    @extra_keywords || @@extra_keywords
   end
 end

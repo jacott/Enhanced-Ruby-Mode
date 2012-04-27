@@ -51,9 +51,16 @@
 (defcustom ruby-extra-keywords
   nil
   "List of idents that will be fontified as keywords. `erm-reset'
-will need to be called inorder for any changes to take effect."
+will need to be called in order for any global changes to take effect.
+
+This variable can also be buffer local in which case it will
+override the global value for the buffer it is local
+to. `ruby-local-enable-extra-keywords' needs to be called after
+the value changes.
+"
   :group 'ruby
   :type '(repeat string))
+(put 'ruby-extra-keywords 'safe-local-variable 'listp)
 
 (defcustom ruby-indent-tabs-mode nil
   "*Indentation can insert tabs in ruby mode if this is non-nil."
@@ -202,7 +209,7 @@ will need to be called inorder for any changes to take effect."
       (set-process-filter erm-ruby-process 'erm-filter)
       (set-process-query-on-exit-flag erm-ruby-process nil)
       (process-send-string (erm-ruby-get-process) (concat "x0:"
-                                                          (mapconcat 'identity ruby-extra-keywords " ")
+                                                          (mapconcat 'identity (default-value 'ruby-extra-keywords) " ")
                                                           ":\n\0\0\0\n"))))
 
   erm-ruby-process)
@@ -252,10 +259,6 @@ will need to be called inorder for any changes to take effect."
       (when (eq 'ruby-mode major-mode)
         (erm-reset-buffer)))))
 
-
-
-(erm-reset)
-
 (defun erm-major-mode-changed ()
   (erm-buffer-killed))
 
@@ -266,7 +269,22 @@ will need to be called inorder for any changes to take effect."
   (setq erm-buff-num erm-next-buff-num)
   (setq erm-next-buff-num (1+ erm-buff-num))
   (add-hook 'after-change-functions #'erm-req-parse nil t)
-  (ruby-fontify-buffer))
+  (unless
+      (ruby-local-enable-extra-keywords)
+    (ruby-fontify-buffer)))
+
+(defun ruby-local-enable-extra-keywords ()
+  "If the variable `ruby-extra-keywords' is buffer local then
+  enable the keywords for current buffer."
+  (when (local-variable-p 'ruby-extra-keywords)
+      (process-send-string (erm-ruby-get-process)
+                           (concat "x"
+                                   (number-to-string erm-buff-num) ":"
+                                   (mapconcat 'identity ruby-extra-keywords " ")
+                                   ":\n\0\0\0\n"))
+      (ruby-fontify-buffer)
+      t))
+
 
 (defvar ruby-mode-syntax-table nil
   "Syntax table in use in ruby-mode buffers.")
@@ -337,6 +355,7 @@ will need to be called inorder for any changes to take effect."
 (define-abbrev-table 'ruby-mode-abbrev-table ())
 
 (defun ruby-mode-variables ()
+  (make-variable-buffer-local 'ruby-extra-keywords)
   (set-syntax-table ruby-mode-syntax-table)
   (setq local-abbrev-table ruby-mode-abbrev-table)
   (set (make-local-variable 'indent-line-function) 'ruby-indent-line)
@@ -1064,5 +1083,6 @@ With ARG, do it that many times."
       (setq erm-full-parse-p t)
       (error "%s" (substring response 1))))))
 
+(erm-reset)
 
 (provide 'ruby-mode)

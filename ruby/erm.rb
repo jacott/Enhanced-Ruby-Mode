@@ -40,7 +40,7 @@ begin
     buf=store.get_buffer(bn=args.shift.to_i)
     case cmd
     when :x
-      ErmBuffer.set_extra_keywords(args.first.split(' '))
+      (buf || ErmBuffer).set_extra_keywords(args.first.split(' '))
     when :c
       STDERR.print 'c'
       STDERR.puts "#{buf.check_syntax}\n\n\0\0\0"
