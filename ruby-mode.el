@@ -499,8 +499,8 @@ modifications to the buffer."
               (setq erm-parsing-p t)
               (if (not erm-full-parse-p)
                   (if erm-no-parse-needed-p (progn (setq erm-parsing-p nil) 'a) 'p)
-                (setq min 1
-                      max (1+ (buffer-size))
+                (setq min (point-min)
+                      max (point-max)
                       len 0
                       erm-full-parse-p nil)
                 'r)))
@@ -924,10 +924,11 @@ With ARG, do it that many times."
   (unless (= (current-indentation) indent)
     (save-excursion
       (beginning-of-line)
-      (let ((prop (get-text-property (point) 'indent)))
+      (let ((pos (point))
+            (prop (get-text-property (point) 'indent)))
         (delete-horizontal-space)
         (indent-to indent)
-        (if prop (put-text-property (point) (1+ (point)) 'indent 'c)))))
+        (if prop (put-text-property pos (1+ pos) 'indent 'c)))))
 
   (if (< (current-column) (current-indentation))
       (back-to-indentation)))
