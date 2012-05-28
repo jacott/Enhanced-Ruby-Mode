@@ -924,8 +924,11 @@ With ARG, do it that many times."
   (unless (= (current-indentation) indent)
     (save-excursion
       (beginning-of-line)
-      (delete-horizontal-space)
-      (indent-to indent)))
+      (let ((prop (get-text-property (point) 'indent)))
+        (delete-horizontal-space)
+        (indent-to indent)
+        (if prop (put-text-property (point) (1+ (point)) 'indent 'c)))))
+
   (if (< (current-column) (current-indentation))
       (back-to-indentation)))
 

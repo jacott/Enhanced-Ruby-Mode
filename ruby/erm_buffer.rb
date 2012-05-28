@@ -127,7 +127,7 @@ class ErmBuffer
       alias_method "on_#{sym}", :on_backref
     end
 
-    [:CHAR, :__end__, :label, :ivar, :cvar, :gvar, :tstring_content, :label, :regexp_beg,
+    [:CHAR, :__end__, :label, :tstring_content, :label, :regexp_beg,
      :backtick, :tstring_beg, :tlambda,
      :embdoc_beg, :embdoc, :embdoc_end].each do |event|
       module_eval(<<-End, __FILE__, __LINE__ + 1)
@@ -136,6 +136,18 @@ class ErmBuffer
           add(:#{event},tok)
         end
       End
+    end
+
+    def on_ivar(tok);_on_var(tok,:ivar);end
+    def on_cvar(tok);_on_var(tok,:cvar);end
+    def on_gvar(tok);_on_var(tok,:gvar);end
+
+    def _on_var(tok,sym)
+      if @mode == :sym
+        add(:label,tok)
+      else
+        add(sym,tok)
+      end
     end
 
     def self.make_hash(list)
@@ -147,24 +159,28 @@ class ErmBuffer
     BEGINDENT_KW = make_hash [:if, :unless, :while]
 
     def on_op(tok)
-      @mode=nil
-      r=if @block && tok == '|'
-          case @block
-          when :b4args
-            indent(:l)
-            @list_count+=1
-            @block=:arglist
+      if @mode == :sym
+         add(:label,tok)
+      else
+        @mode=nil
+        r=if @block && tok == '|'
+            case @block
+            when :b4args
+              indent(:l)
+              @list_count+=1
+              @block=:arglist
+            else
+              indent(:r)
+              @list_count-=1
+              @block=false
+            end
+            add(:arglist, tok, 1)
           else
-            indent(:r)
-            @list_count-=1
-            @block=false
+            add(:op, tok, tok.size, false, :cont)
           end
-          add(:arglist, tok, 1)
-        else
-          add(:op, tok, tok.size, false, :cont)
-        end
-      @statment_start=true
-      r
+        @statment_start=true
+        r
+      end
     end
 
     def on_period(tok)

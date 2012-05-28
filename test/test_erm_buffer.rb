@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-require File.expand_path('../helper',__FILE__)
+require_relative 'helper'
 require 'ruby/erm_buffer.rb'
 
 class TestErmBuffer < Test::Unit::TestCase
@@ -11,6 +11,30 @@ class TestErmBuffer < Test::Unit::TestCase
   def setup
     super
     ErmBuffer.set_extra_keywords({})
+  end
+
+  def test_continations
+    assert_equal "((11 1 11 c 5)(0 1 7))",
+    parse_text(%q{
+a,
+b
+     })
+  end
+
+  def test_symbols
+    exp="((4 1 4 )(5 1 4))"
+    assert_equal(exp, parse_text(':aaa'))
+    assert_equal(exp, parse_text(':@aa'))
+    assert_equal(exp, parse_text(':@@a'))
+    assert_equal(exp, parse_text(':$aa'))
+    assert_equal(exp, parse_text(':<=>'))
+    exp="((3 1 3 )(5 1 3))"
+    assert_equal(exp, parse_text(':aa'))
+    assert_equal(exp, parse_text(':=='))
+    exp="((2 1 2 )(5 1 2))"
+    assert_equal(exp, parse_text(':a'))
+    assert_equal(exp, parse_text(':+'))
+    assert_equal(exp, parse_text(':='))
   end
 
   def test_extra_keywords
