@@ -156,7 +156,7 @@ class ErmBuffer
 
     INDENT_KW    = make_hash [:begin, :def, :for, :case, :module, :class, :do]
     BACKDENT_KW  = make_hash [:elsif, :else, :when, :rescue, :ensure]
-    BEGINDENT_KW = make_hash [:if, :unless, :while]
+    BEGINDENT_KW = make_hash [:if, :unless, :while, :until]
 
     def on_op(tok)
       if @mode == :sym

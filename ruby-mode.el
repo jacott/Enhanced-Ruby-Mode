@@ -928,7 +928,7 @@ With ARG, do it that many times."
             (prop (get-text-property (point) 'indent)))
         (delete-horizontal-space)
         (indent-to indent)
-        (if prop (put-text-property pos (1+ pos) 'indent 'c)))))
+        (if (eq 'c prop) (put-text-property pos (1+ pos) 'indent 'c)))))
 
   (if (< (current-column) (current-indentation))
       (back-to-indentation)))
